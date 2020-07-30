@@ -211,19 +211,30 @@ def list():
 
 
 @job.command(cls=Command)
-@click.argument(
-    "job_id",
-    type=uuid.UUID,
-)
-def status(
-    job_id: uuid.UUID,
-):
+@click.argument("job_id", type=uuid.UUID)
+def status(job_id: uuid.UUID):
     """
     Return the status of the job with the given ID.
     """
     headers = get_headers()
     try:
         response = requests.get(
+            f"https://sandbox.timer.automate.globus.org/jobs/{job_id}",
+            headers=headers,
+            timeout=TIMEOUT,
+        )
+    except requests.RequestException as e:
+        handle_requests_exception(e)
+        return
+    show_response(response)
+
+
+@job.command(cls=Command)
+@click.argument("job_id", type=uuid.UUID)
+def delete(job_id: uuid.UUID):
+    headers = get_headers()
+    try:
+        response = requests.delete(
             f"https://sandbox.timer.automate.globus.org/jobs/{job_id}",
             headers=headers,
             timeout=TIMEOUT,
