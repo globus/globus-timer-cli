@@ -24,7 +24,7 @@ def show_usage(cmd: click.Command):
     """
     Show the relevant usage and exit.
 
-    The actual usage message is accurate for incomplete commands, e.g.
+    The actual usage message is also specific to incomplete commands.
     """
     ctx = click.get_current_context()
     formatter = ctx.make_formatter()
@@ -77,6 +77,32 @@ class Command(click.Command):
             click.echo()
             show_usage(self)
             sys.exit(e.exit_code)
+
+
+class MutuallyExclusive(click.Option):
+    """
+    Based on the answer for: https://stackoverflow.com/q/44247099
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.mutually_exclusive = kwargs.pop('mutually_exclusive')
+        assert self.mutually_exclusive, "'mutually_exclusive' parameter required"
+        super().__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        self_exists = self.name in opts
+        mutually_exclusive_exists = self.mutually_exclusive in opts
+        if self_exists and mutually_exclusive_exists:
+            raise click.UsageError(
+                f"Illegal usage: `{self.name}` is mutually exclusive with"
+                f" `{self.mutually_exclusive}`"
+            )
+        if not (self_exists or mutually_exclusive_exists):
+            raise click.UsageError(
+                f"Illegal usage: one of `{self.name}` or `{self.mutually_exclusive}`"
+                " is required"
+            )
+        return super().handle_parse_result(ctx, opts, args)
 
 
 class URL(click.ParamType):
@@ -147,23 +173,44 @@ def job():
 )
 @click.option(
     "--action-body",
-    required=True,
+    required=False,
     type=str,
-    help="request JSON body to send to the action provider on job execution",
+    help=(
+        "request JSON body to send to the action provider on job execution (NOTE:"
+        " mutually exclusive with --action-file)"
+    ),
+    cls=MutuallyExclusive,
+    mutually_exclusive="action_file",
+)
+@click.option(
+    "--action-file",
+    required=False,
+    type=click.File("r"),
+    help=(
+        "path to a file containing JSON to send to the action provider on job"
+        " execution (NOTE: mutually exclusive with --action-body)"
+    ),
+    cls=MutuallyExclusive,
+    mutually_exclusive="action_body",
 )
 def submit(
     name: str,
     start: Optional[click.DateTime],
     interval: int,
     action_url: urllib.parse.ParseResult,
-    action_body: str,
+    action_body: Optional[str],
+    action_file: Optional[click.File],
 ):
     """
     Submit a new job.
     """
+    callback_body = None
     try:
-        callback_body = action_body.strip("'").strip('"')
-        callback_body = json.loads(action_body)
+        if action_body:
+            callback_body = action_body.strip("'").strip('"')
+            callback_body = json.loads(action_body)
+        else:  # action_file
+            callback_body = json.load(action_file)
     except (TypeError, ValueError) as e:
         raise click.BadOptionUsage(
             "action-body",
