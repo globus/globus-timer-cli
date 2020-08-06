@@ -8,6 +8,17 @@ keywords = [
   "automation",
   "cli"
 ]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: Free To Use But Restricted",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Topic :: Internet :: WWW/HTTP",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: Software Development :: Libraries :: Python Modules"
+]
 readme = "pypi/README.md"
 packages = [
     { include = "timer_cli" }
