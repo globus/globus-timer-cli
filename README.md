@@ -2,6 +2,14 @@
 
 (See also the PyPI-specific README in README.rst.)
 
+## Installation
+
+Users can install with pip:
+```bash
+pip install globus-timer-cli
+```
+Make sure to install in a virtual environment or with the `--user` flag as necessary.
+
 ## Development
 
 The CLI is built on `click`; documentation for `click` is found
