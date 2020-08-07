@@ -27,10 +27,10 @@ To summarize, the CLI can be used for the following tasks:
 As an example, a complete command would look something like this:
 
 ```
-globus-timer-cli job submit \
+globus-timer job submit \
     --name test-tutorial-job \
     --interval 600 \
-    --action-url https://actions.automate.globus.org/transfer/transfer/run
+    --action-url https://actions.automate.globus.org/transfer/transfer/run \
     --action-body '{"body": {"source_endpoint_id": "ddb59aef-6d04-11e5-ba46-22000b92c6ec", "destination_endpoint_id": "ddb59af0-6d04-11e5-ba46-22000b92c6ec", "transfer_items": [{"source_path": "/~/file1.txt", "destination_path": "/~/new_file1.txt"}]}}'
 ```
 
