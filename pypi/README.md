@@ -40,13 +40,21 @@ the `action-body` depends on the schema expected for that action provider, which
 isn't known by the CLI. You can use the [Globus Automate
 client](https://pypi.org/project/globus-automate-client/) to introspect the
 input schema for an action provider, which is what the CLI needs for the
-`--action-body` parameter.
+`--action-body` parameter. As for the other options, a quick breakdown:
+
+- `--name` is just for the user to track their own submissions, and does not
+  need to be unique
+- `--interval`, for the job to re-run at, is in units of seconds
+- `--start-time` is optional, defaulting to the current time, and allowed
+  formats are listed in `globus-timer job submit --help`
+- Instead of `--action-body` you can also give `--action-file` which should be a
+  relative filepath to a file containing the same action body as JSON
 
 To schedule transfers on your behalf, this CLI requires authentication through
 Globus Auth. The CLI should initially prompt you with a Globus Auth page to
 consent to this usage. Authentication information is cached in the file
-`$HOME/.config/globus/tokens.json` (so the authentication process is only needed
-on the first use), which should be kept secret.
+`~/.config/globus/tokens.json` (so the authentication process is only needed on
+the first use), which should be kept secret.
 
 ## How Does it Work?
 
