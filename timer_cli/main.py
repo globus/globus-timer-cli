@@ -291,7 +291,9 @@ def transfer(
     Submit specifically a transfer job. The options for this command are tailored to
     the transfer action.
     """
-    action_url = "https://actions.automate.globus.org/transfer/transfer/run"
+    action_url = urllib.parse.urlparse(
+        "https://actions.automate.globus.org/transfer/transfer/run"
+    )
     scope = "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
     transfer_items = [
         {"source_path": i[0], "destination_path": i[1], "recursive": i[2]}
@@ -312,8 +314,9 @@ def transfer(
         interval,
         scope,
         action_url,
-        action_body,
-        None,
+        action_body=None,
+        action_file=None,
+        callback_body=action_body,
     ))
 
 

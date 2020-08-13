@@ -36,19 +36,20 @@ def job_submit(
     action_url: urllib.parse.ParseResult,
     action_body: Optional[str],
     action_file: Optional[click.File],
+    callback_body: Optional[dict] = None,
 ):
-    callback_body = None
-    try:
-        if action_body:
-            callback_body = action_body.strip("'").strip('"')
-            callback_body = json.loads(action_body)
-        else:  # action_file
-            callback_body = json.load(action_file)
-    except (TypeError, ValueError) as e:
-        raise click.BadOptionUsage(
-            "action-body",
-            f"--action-body must parse into valid JSON; got error: {e}",
-        )
+    if not callback_body:
+        try:
+            if action_body:
+                callback_body = action_body.strip("'").strip('"')
+                callback_body = json.loads(action_body)
+            else:  # action_file
+                callback_body = json.load(action_file)
+        except (TypeError, ValueError) as e:
+            raise click.BadOptionUsage(
+                "action-body",
+                f"--action-body must parse into valid JSON; got error: {e}",
+            )
     start = start or datetime.datetime.now()
     callback_url: str = action_url.geturl()
     req_json = {
