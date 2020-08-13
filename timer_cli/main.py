@@ -3,21 +3,16 @@ TODO:
     - look into https://github.com/click-contrib/click-help-colors
 """
 
-import datetime
 import json
 import sys
-from typing import Optional
+from typing import List, Optional, Tuple
 import urllib.parse
 import uuid
 
 import click
 import requests
 
-from timer_cli.auth import get_access_token
-
-
-# how long to wait before giving up on requests to the API
-TIMEOUT = 10
+from timer_cli.job import job_delete, job_list, job_status, job_submit
 
 
 def show_usage(cmd: click.Command):
@@ -40,11 +35,6 @@ def show_response(response: requests.Response):
     if response.status_code >= 400:
         click.echo(f"got response code {response.status_code}", err=True)
     click.echo(json.dumps(response.json()))
-
-
-def handle_requests_exception(e: Exception):
-    click.echo(f"error in request: {e}", err=True)
-    sys.exit(1)
 
 
 class Command(click.Command):
@@ -124,15 +114,6 @@ class URL(click.ParamType):
         return value
 
 
-def get_headers(token_store: Optional[str] = None) -> dict:
-    """
-    Assemble any needed headers that should go in all requests to the timer API, such
-    as the access token.
-    """
-    access_token = get_access_token(token_store=token_store)
-    return {"Authorization": f"Bearer {access_token}"}
-
-
 cli = click.Group()
 
 
@@ -161,6 +142,12 @@ def job():
     required=True,
     type=int,
     help="interval in seconds at which the job should run",
+)
+@click.option(
+    "--scope",
+    required=True,
+    type=str,
+    help="Globus Auth scope needed for this action",
 )
 @click.option(
     "--action-url",
@@ -197,46 +184,23 @@ def submit(
     name: str,
     start: Optional[click.DateTime],
     interval: int,
+    scope: str,
     action_url: urllib.parse.ParseResult,
     action_body: Optional[str],
     action_file: Optional[click.File],
 ):
     """
-    Submit a new job.
+    Submit a job.
     """
-    callback_body = None
-    try:
-        if action_body:
-            callback_body = action_body.strip("'").strip('"')
-            callback_body = json.loads(action_body)
-        else:  # action_file
-            callback_body = json.load(action_file)
-    except (TypeError, ValueError) as e:
-        raise click.BadOptionUsage(
-            "action-body",
-            f"--action-body must parse into valid JSON; got error: {e}",
-        )
-    start = start or datetime.datetime.now()
-    callback_url: str = action_url.geturl()
-    req_json = {
-        "name": name,
-        "start": start.isoformat(),
-        "interval": interval,
-        "callback_url": callback_url,
-        "callback_body": callback_body,
-    }
-    headers = get_headers()
-    try:
-        response = requests.post(
-            "https://sandbox.timer.automate.globus.org/jobs/",
-            json=req_json,
-            headers=headers,
-            timeout=TIMEOUT,
-        )
-    except requests.RequestException as e:
-        handle_requests_exception(e)
-        return
-    show_response(response)
+    show_response(job_submit(
+        name,
+        start,
+        interval,
+        scope,
+        action_url,
+        action_body,
+        action_file,
+    ))
 
 
 @job.command(cls=Command)
@@ -244,17 +208,7 @@ def list():
     """
     List submitted jobs.
     """
-    headers = get_headers()
-    try:
-        response = requests.get(
-            f"https://sandbox.timer.automate.globus.org/jobs/",
-            headers=headers,
-            timeout=TIMEOUT,
-        )
-    except requests.RequestException as e:
-        handle_requests_exception(e)
-        return
-    show_response(response)
+    show_response(job_list())
 
 
 @job.command(cls=Command)
@@ -263,33 +217,104 @@ def status(job_id: uuid.UUID):
     """
     Return the status of the job with the given ID.
     """
-    headers = get_headers()
-    try:
-        response = requests.get(
-            f"https://sandbox.timer.automate.globus.org/jobs/{job_id}",
-            headers=headers,
-            timeout=TIMEOUT,
-        )
-    except requests.RequestException as e:
-        handle_requests_exception(e)
-        return
-    show_response(response)
+    show_response(job_status(job_id))
 
 
 @job.command(cls=Command)
 @click.argument("job_id", type=uuid.UUID)
 def delete(job_id: uuid.UUID):
-    headers = get_headers()
-    try:
-        response = requests.delete(
-            f"https://sandbox.timer.automate.globus.org/jobs/{job_id}",
-            headers=headers,
-            timeout=TIMEOUT,
-        )
-    except requests.RequestException as e:
-        handle_requests_exception(e)
-        return
-    show_response(response)
+    show_response(job_delete(job_id))
+
+
+@job.command(cls=Command)
+@click.option(
+    "--name",
+    required=True,
+    type=str,
+    help="name to identify this job (not necessarily unique)",
+)
+@click.option(
+    "--start",
+    required=False,
+    type=click.DateTime(),
+    help=(
+        "start time for the job (defaults to current time)"
+    ),
+)
+@click.option(
+    "--interval",
+    required=True,
+    type=int,
+    help="interval in seconds at which the job should run",
+)
+@click.option(
+    "--source-endpoint",
+    required=True,
+    type=str,
+    help="ID for source transfer endpoint",
+)
+@click.option(
+    "--dest-endpoint",
+    required=True,
+    type=str,
+    help="ID for destination transfer endpoint",
+)
+@click.option(
+    "--label",
+    required=False,
+    type=str,
+    help="label for the transfer operation",
+)
+@click.option(
+    "--sync-level",
+    required=False,
+    type=int,
+    help="a value 0--3 as defined in the transfer API",
+)
+@click.option(
+    "--item",
+    required=True,
+    type=(str, str, bool),
+    multiple=True,
+)
+def transfer(
+    name: str,
+    start: Optional[click.DateTime],
+    interval: int,
+    source_endpoint: str,
+    dest_endpoint: str,
+    label: Optional[str],
+    sync_level: Optional[int],
+    item: List[Tuple[str, str, Optional[str]]],
+):
+    """
+    Submit specifically a transfer job. The options for this command are tailored to
+    the transfer action.
+    """
+    action_url = "https://actions.automate.globus.org/transfer/transfer/run"
+    scope = "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
+    transfer_items = [
+        {"source_path": i[0], "destination_path": i[1], "recursive": i[2]}
+        for i in item
+    ]
+    action_body = {
+        "source_endpoint_id": source_endpoint,
+        "destination_endpoint_id": dest_endpoint,
+        "transfer_items": transfer_items,
+    }
+    if label:
+        action_body["label"] = label
+    if sync_level:
+        action_body["sync_level"] = sync_level
+    show_response(job_submit(
+        name,
+        start,
+        interval,
+        scope,
+        action_url,
+        action_body,
+        None,
+    ))
 
 
 def main():
