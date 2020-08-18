@@ -22,6 +22,7 @@ def show_usage(cmd: click.Command):
     The actual usage message is also specific to incomplete commands.
     """
     ctx = click.get_current_context()
+    ctx.max_content_width = 100
     formatter = ctx.make_formatter()
     cmd.format_help_text(ctx, formatter)
     cmd.format_options(ctx, formatter)
@@ -127,21 +128,21 @@ def job():
     "--name",
     required=True,
     type=str,
-    help="name to identify this job (not necessarily unique)",
+    help="Name to identify this job (not necessarily unique)",
 )
 @click.option(
     "--start",
     required=False,
     type=click.DateTime(),
     help=(
-        "start time for the job (defaults to current time)"
+        "Start time for the job (defaults to current time)"
     ),
 )
 @click.option(
     "--interval",
     required=True,
     type=int,
-    help="interval in seconds at which the job should run",
+    help="Interval in seconds at which the job should run",
 )
 @click.option(
     "--scope",
@@ -231,45 +232,56 @@ def delete(job_id: uuid.UUID):
     "--name",
     required=True,
     type=str,
-    help="name to identify this job (not necessarily unique)",
+    help="Name to identify this job (not necessarily unique)",
 )
 @click.option(
     "--start",
     required=False,
     type=click.DateTime(),
     help=(
-        "start time for the job (defaults to current time)"
+        "Start time for the job (defaults to current time)"
     ),
 )
 @click.option(
     "--interval",
     required=True,
     type=int,
-    help="interval in seconds at which the job should run",
+    help="Interval in seconds at which the job should run",
 )
 @click.option(
     "--source-endpoint",
     required=True,
     type=str,
-    help="ID for source transfer endpoint",
+    help="ID for the source transfer endpoint",
 )
 @click.option(
     "--dest-endpoint",
     required=True,
     type=str,
-    help="ID for destination transfer endpoint",
+    help="ID for the destination transfer endpoint",
 )
 @click.option(
     "--label",
     required=False,
     type=str,
-    help="label for the transfer operation",
+    help=(
+        "An optional label for the transfer operation, up to 128 characters long. Must"
+        " contain only letters/numbers/spaces, and the following characters: - _ ,"
+    ),
 )
 @click.option(
     "--sync-level",
     required=False,
     type=int,
-    help="a value 0--3 as defined in the transfer API",
+    help=(
+        "Specify that only new or modified files should be transferred. The behavior"
+        " depends on the value of this parameter, which must be a value 0--3, as"
+        " defined in the transfer API: 0. Copy files that do not exist at the"
+        " destination. 1.  Copy files if the size of the destination does not match the"
+        " size of the source. 2. Copy files if the timestamp of the destination is"
+        " older than the timestamp of the source. 3. Copy files if checksums of the"
+        " source and destination do not match."
+    ),
 )
 @click.option(
     "--item",
@@ -277,10 +289,10 @@ def delete(job_id: uuid.UUID):
     type=(str, str, bool),
     multiple=True,
     help=(
-        "used to specify the transfer items. provide as many of this option as files"
-        " to transfer. the format for this option is `--item SRC DST RECURSIVE`, where"
+        "Used to specify the transfer items; provide as many of this option as files"
+        " to transfer. The format for this option is `--item SRC DST RECURSIVE`, where"
         " RECURSIVE specifies, if this item is a directory, to transfer the entire"
-        " directory."
+        " directory. For example: `--item ~/file1.txt ~/new_file1.txt false`"
     ),
 )
 def transfer(
