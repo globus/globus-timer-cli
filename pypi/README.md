@@ -13,9 +13,16 @@ the same input we would give to the transfer action provider; that part of the
 request contains the information for what endpoints we transfer to and from as
 well as other options relevant to the transfer.
 
-## Basic Usage
+## Installation
 
-Install with `pip install globus-timer-cli`.
+This CLI requires Python version 3.5 or higher. See the [Globus CLI
+docs](https://docs.globus.org/cli/installation/prereqs/) for help on how to set
+up Python.
+
+Once the appropriate version of Python is ready, install with `pip install
+globus-timer-cli`.
+
+## Basic Usage
 
 To summarize, the CLI can be used for the following tasks:
 - Schedule a new recurring job: `globus-timer job submit ...`

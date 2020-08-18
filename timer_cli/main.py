@@ -276,6 +276,12 @@ def delete(job_id: uuid.UUID):
     required=True,
     type=(str, str, bool),
     multiple=True,
+    help=(
+        "used to specify the transfer items. provide as many of this option as files"
+        " to transfer. the format for this option is `--item SRC DST RECURSIVE`, where"
+        " RECURSIVE specifies, if this item is a directory, to transfer the entire"
+        " directory."
+    ),
 )
 def transfer(
     name: str,
