@@ -326,6 +326,7 @@ def transfer(
         action_body["label"] = label
     if sync_level:
         action_body["sync_level"] = sync_level
+    callback_body = {"body": action_body}
     show_response(job_submit(
         name,
         start,
@@ -334,7 +335,7 @@ def transfer(
         action_url,
         action_body=None,
         action_file=None,
-        callback_body=action_body,
+        callback_body=callback_body,
     ))
 
 
