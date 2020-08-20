@@ -22,9 +22,34 @@ up Python.
 Once the appropriate version of Python is ready, install with `pip install
 globus-timer-cli`.
 
+## Transfer Quickstart
+
+```
+globus-timer job transfer \
+    --name example-job
+    --interval 28800
+    --start '2020-01-01T12:34:56'
+    --source-endpoint ddb59aef-6d04-11e5-ba46-22000b92c6ec \
+    --dest-endpoint ddb59af0-6d04-11e5-ba46-22000b92c6ec \
+    --item ~/file1.txt ~/new_file1.txt false
+    --item ~/file2.txt ~/new_file2.txt false
+```
+Specify any number of `--item`, which will be transferred from the source
+endpoint to the destination endpoint at the interval specified, beginning at the
+start time. The start time is inferred to be in the local timezone if an offset
+is not specified. See `globus-timer job transfer --help` for additional details.
+
+The results should contain a UUID in the field `job_id` which tracks this job in
+the timer service. To check on the results of your transfers, use:
+```
+globus-timer job status JOB_ID
+```
+
 ## Basic Usage
 
-To summarize, the CLI can be used for the following tasks:
+While part of the CLI is tailored to submitting transfer tasks, the interface
+provides for scheduling generic actions in the Globus Automate API. To
+summarize, the CLI can be used for the following tasks:
 - Schedule a new recurring job: `globus-timer job submit ...`
 - Check the list of previously-submitted jobs: `globus-timer job list`
 - Check on the status of a particular job: `globus-timer job status JOB_ID`
@@ -52,8 +77,8 @@ input schema for an action provider, which is what the CLI needs for the
 - `--name` is just for the user to track their own submissions, and does not
   need to be unique
 - `--interval`, for the job to re-run at, is in units of seconds
-- `--start-time` is optional, defaulting to the current time, and allowed
-  formats are listed in `globus-timer job submit --help`
+- `--start` is optional, defaulting to the current time, and allowed formats are
+  listed in `globus-timer job submit --help`
 - Instead of `--action-body` you can also give `--action-file` which should be a
   relative filepath to a file containing the same action body as JSON
 

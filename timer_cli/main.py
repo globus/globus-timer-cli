@@ -3,6 +3,7 @@ TODO:
     - look into https://github.com/click-contrib/click-help-colors
 """
 
+import datetime
 import json
 import sys
 from typing import List, Optional, Tuple
@@ -13,6 +14,16 @@ import click
 import requests
 
 from timer_cli.job import job_delete, job_list, job_status, job_submit
+
+
+DATETIME_FORMATS = [
+    "%Y-%m-%d",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S%z",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M:%S%z",
+]
+
 
 
 def show_usage(cmd: click.Command):
@@ -128,12 +139,12 @@ def job():
     "--name",
     required=True,
     type=str,
-    help="Name to identify this job (not necessarily unique)",
+    help="Name to identify this job in the timer service (not necessarily unique)",
 )
 @click.option(
     "--start",
     required=False,
-    type=click.DateTime(),
+    type=click.DateTime(formats=DATETIME_FORMATS),
     help=(
         "Start time for the job (defaults to current time)"
     ),
@@ -183,7 +194,7 @@ def job():
 )
 def submit(
     name: str,
-    start: Optional[click.DateTime],
+    start: Optional[datetime.datetime],
     interval: int,
     scope: str,
     action_url: urllib.parse.ParseResult,
@@ -232,12 +243,12 @@ def delete(job_id: uuid.UUID):
     "--name",
     required=True,
     type=str,
-    help="Name to identify this job (not necessarily unique)",
+    help="Name to identify this job in the timer service (not necessarily unique)",
 )
 @click.option(
     "--start",
     required=False,
-    type=click.DateTime(),
+    type=click.DateTime(formats=DATETIME_FORMATS),
     help=(
         "Start time for the job (defaults to current time)"
     ),
@@ -297,7 +308,7 @@ def delete(job_id: uuid.UUID):
 )
 def transfer(
     name: str,
-    start: Optional[click.DateTime],
+    start: Optional[datetime.datetime],
     interval: int,
     source_endpoint: str,
     dest_endpoint: str,

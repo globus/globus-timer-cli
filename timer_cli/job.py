@@ -30,7 +30,7 @@ def get_headers(token_store: Optional[str] = None) -> dict:
 
 def job_submit(
     name: str,
-    start: Optional[click.DateTime],
+    start: Optional[datetime.datetime],
     interval: int,
     scope: str,
     action_url: urllib.parse.ParseResult,
@@ -51,10 +51,14 @@ def job_submit(
                 f"--action-body must parse into valid JSON; got error: {e}",
             )
     start = start or datetime.datetime.now()
+    start_with_tz = start
+    if start_with_tz.tzinfo is None:
+        start_with_tz = start.astimezone()
+    import pdb; pdb.set_trace()
     callback_url: str = action_url.geturl()
     req_json = {
         "name": name,
-        "start": start.isoformat(),
+        "start": start_with_tz.isoformat(),
         "interval": interval,
         "scope": scope,
         "callback_url": callback_url,
