@@ -54,7 +54,6 @@ def job_submit(
     start_with_tz = start
     if start_with_tz.tzinfo is None:
         start_with_tz = start.astimezone()
-    import pdb; pdb.set_trace()
     callback_url: str = action_url.geturl()
     req_json = {
         "name": name,
@@ -77,11 +76,15 @@ def job_submit(
         return
 
 
-def job_list():
+def job_list(show_deleted: bool = False):
     headers = get_headers()
+    params = dict()
+    if show_deleted:
+        params["show_deleted"] = True
     try:
         return requests.get(
             f"https://sandbox.timer.automate.globus.org/jobs/",
+            params=params,
             headers=headers,
             timeout=TIMEOUT,
         )

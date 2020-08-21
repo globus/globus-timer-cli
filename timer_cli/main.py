@@ -25,7 +25,6 @@ DATETIME_FORMATS = [
 ]
 
 
-
 def show_usage(cmd: click.Command):
     """
     Show the relevant usage and exit.
@@ -216,11 +215,17 @@ def submit(
 
 
 @job.command(cls=Command)
-def list():
+@click.option(
+    "--show-deleted",
+    required=False,
+    is_flag=True,
+    help="Whether to include deleted jobs in the output",
+)
+def list(show_deleted: bool):
     """
     List submitted jobs.
     """
-    show_response(job_list())
+    show_response(job_list(show_deleted=show_deleted))
 
 
 @job.command(cls=Command)
