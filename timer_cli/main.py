@@ -4,18 +4,26 @@ TODO:
 """
 
 import datetime
-import json
+from distutils.util import strtobool
 import sys
-from typing import List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 import urllib.parse
 import uuid
 
 import click
-import requests
 
-from timer_cli.job import job_delete, job_list, job_status, job_submit
+from timer_cli.job import (
+    job_delete,
+    job_list,
+    job_status,
+    job_submit,
+    show_job,
+    show_job_list,
+)
+from timer_cli.output import show_response
 
 
+# List of datetime formats accepted as input. (`%z` means timezone.)
 DATETIME_FORMATS = [
     "%Y-%m-%d",
     "%Y-%m-%dT%H:%M:%S",
@@ -25,11 +33,16 @@ DATETIME_FORMATS = [
 ]
 
 
+def _un_parse_opt(opt: str):
+    return "--" + opt.replace("_", "-")
+
+
 def show_usage(cmd: click.Command):
     """
     Show the relevant usage and exit.
 
-    The actual usage message is also specific to incomplete commands.
+    The actual usage message is also specific to incomplete commands, thanks to using
+    the click context.
     """
     ctx = click.get_current_context()
     ctx.max_content_width = 100
@@ -42,12 +55,6 @@ def show_usage(cmd: click.Command):
     sys.exit(2)
 
 
-def show_response(response: requests.Response):
-    if response.status_code >= 400:
-        click.echo(f"got response code {response.status_code}", err=True)
-    click.echo(json.dumps(response.json()))
-
-
 class Command(click.Command):
     """
     Subclass click.Command to show help message if a command is missing arguments.
@@ -55,29 +62,25 @@ class Command(click.Command):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # for some reason this does nothing---would like to fix
-        #     self.context_settings.update({
-        #         "max_content_width": 120,
-        #     })
 
     def make_context(self, *args, **kwargs):
+        """
+        This is a semi-internal method on Commands that starts the parsing to create a
+        new context. We hook into that here to catch any immediate parsing errors
+        (missing arguments etc.) to exit and show our usage message.
+        """
         try:
             return super().make_context(*args, **kwargs)
-        except click.MissingParameter as e:
-            e.cmd = None
-            e.show()
-            click.echo()
-            show_usage(self)
         except (
             click.BadArgumentUsage,
             click.BadOptionUsage,
             click.BadParameter,
+            click.MissingParameter,
         ) as e:
             e.cmd = None
             e.show()
             click.echo()
             show_usage(self)
-            sys.exit(e.exit_code)
 
 
 class MutuallyExclusive(click.Option):
@@ -102,6 +105,41 @@ class MutuallyExclusive(click.Option):
             raise click.UsageError(
                 f"Illegal usage: one of `{self.name}` or `{self.mutually_exclusive}`"
                 " is required"
+            )
+        return super().handle_parse_result(ctx, opts, args)
+
+
+def _get_options_flags(options: Iterable[click.Option]):
+    """
+    Given a list of options, produce a list of formatted option flags, like
+    "--verbose/-v".
+    """
+    return ", ".join(["/".join(opt.opts) for opt in options])
+
+
+class JointlyExhaustive(click.Option):
+    """
+    "Jointly exhaustive", meaning that at least one must occur.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.jointly_exhaustive: List[str] = kwargs.pop("jointly_exhaustive")
+        assert self.jointly_exhaustive, "'jointly_exhaustive' parameter required"
+        super().__init__(*args, **kwargs)
+
+    def handle_parse_result(self, ctx, opts, args):
+        options_exist = [opt in opts for opt in self.jointly_exhaustive]
+        options_exist.append(self.name in opts)
+        if not any(options_exist):
+            ctx = click.get_current_context()
+            full_options_names = ", ".join([
+                "/".join(opt.opts)
+                for opt in ctx.command.params
+                if opt.name in self.jointly_exhaustive or opt == self
+            ])
+            raise click.UsageError(
+                "Must provide at least one of the following options:"
+                f" {full_options_names}"
             )
         return super().handle_parse_result(ctx, opts, args)
 
@@ -191,6 +229,12 @@ def job():
     cls=MutuallyExclusive,
     mutually_exclusive="action_body",
 )
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show full JSON output",
+)
 def submit(
     name: str,
     start: Optional[datetime.datetime],
@@ -199,11 +243,12 @@ def submit(
     action_url: urllib.parse.ParseResult,
     action_body: Optional[str],
     action_file: Optional[click.File],
+    verbose: bool,
 ):
     """
     Submit a job.
     """
-    show_response(job_submit(
+    response = job_submit(
         name,
         start,
         interval,
@@ -211,7 +256,8 @@ def submit(
         action_url,
         action_body,
         action_file,
-    ))
+    )
+    show_job(response, verbose=verbose)
 
 
 @job.command(cls=Command)
@@ -221,20 +267,33 @@ def submit(
     is_flag=True,
     help="Whether to include deleted jobs in the output",
 )
-def list(show_deleted: bool):
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show full JSON output",
+)
+def list(show_deleted: bool, verbose: bool):
     """
     List submitted jobs.
     """
-    show_response(job_list(show_deleted=show_deleted))
+    response = job_list(show_deleted=show_deleted)
+    show_job_list(response, verbose=verbose)
 
 
 @job.command(cls=Command)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show full JSON output",
+)
 @click.argument("job_id", type=uuid.UUID)
-def status(job_id: uuid.UUID):
+def status(job_id: uuid.UUID, verbose: bool):
     """
     Return the status of the job with the given ID.
     """
-    show_response(job_status(job_id))
+    show_job(job_status(job_id), verbose=verbose)
 
 
 @job.command(cls=Command)
@@ -293,7 +352,7 @@ def delete(job_id: uuid.UUID):
         "Specify that only new or modified files should be transferred. The behavior"
         " depends on the value of this parameter, which must be a value 0--3, as"
         " defined in the transfer API: 0. Copy files that do not exist at the"
-        " destination. 1.  Copy files if the size of the destination does not match the"
+        " destination. 1. Copy files if the size of the destination does not match the"
         " size of the source. 2. Copy files if the timestamp of the destination is"
         " older than the timestamp of the source. 3. Copy files if checksums of the"
         " source and destination do not match."
@@ -301,15 +360,33 @@ def delete(job_id: uuid.UUID):
 )
 @click.option(
     "--item",
-    required=True,
+    "-i",
+    required=False,
     type=(str, str, bool),
     multiple=True,
+    cls=JointlyExhaustive,
+    jointly_exhaustive=["items_file"],
     help=(
         "Used to specify the transfer items; provide as many of this option as files"
         " to transfer. The format for this option is `--item SRC DST RECURSIVE`, where"
         " RECURSIVE specifies, if this item is a directory, to transfer the entire"
         " directory. For example: `--item ~/file1.txt ~/new_file1.txt false`"
     ),
+)
+@click.option(
+    "--items-file",
+    required=False,
+    type=str,
+    cls=JointlyExhaustive,
+    jointly_exhaustive=["item"],
+    help="file containing table of items to transfer",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    help="Show full JSON output",
 )
 def transfer(
     name: str,
@@ -319,7 +396,9 @@ def transfer(
     dest_endpoint: str,
     label: Optional[str],
     sync_level: Optional[int],
-    item: List[Tuple[str, str, Optional[str]]],
+    item: Optional[List[Tuple[str, str, Optional[str]]]],
+    items_file: Optional[str],
+    verbose: bool,
 ):
     """
     Submit specifically a transfer job. The options for this command are tailored to
@@ -329,10 +408,23 @@ def transfer(
         "https://actions.automate.globus.org/transfer/transfer/run"
     )
     scope = "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
-    transfer_items = [
-        {"source_path": i[0], "destination_path": i[1], "recursive": i[2]}
-        for i in item
-    ]
+    if item:
+        transfer_items = [
+            {"source_path": i[0], "destination_path": i[1], "recursive": i[2]}
+            for i in item
+        ]
+    else:
+        with open(items_file, "r") as f:
+            lines = f.readlines()
+        items = [line.split() for line in lines]
+        transfer_items = [
+            {
+                "source_path": i[0],
+                "destination_path": i[1],
+                "recursive": bool(strtobool(i[2]))
+            }
+            for i in items
+        ]
     action_body = {
         "source_endpoint_id": source_endpoint,
         "destination_endpoint_id": dest_endpoint,
@@ -343,7 +435,7 @@ def transfer(
     if sync_level:
         action_body["sync_level"] = sync_level
     callback_body = {"body": action_body}
-    show_response(job_submit(
+    response = job_submit(
         name,
         start,
         interval,
@@ -352,7 +444,8 @@ def transfer(
         action_body=None,
         action_file=None,
         callback_body=callback_body,
-    ))
+    )
+    show_job(response, verbose=verbose)
 
 
 def main():
