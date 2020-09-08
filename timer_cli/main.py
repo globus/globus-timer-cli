@@ -102,9 +102,14 @@ class MutuallyExclusive(click.Option):
                 f" `{self.mutually_exclusive}`"
             )
         if not (self_exists or mutually_exclusive_exists):
+            full_options_names = ", ".join([
+                "/".join(opt.opts)
+                for opt in ctx.command.params
+                if opt.name in self.mutually_exclusive or opt == self
+            ])
             raise click.UsageError(
-                f"Illegal usage: one of `{self.name}` or `{self.mutually_exclusive}`"
-                " is required"
+                "Illegal usage: one of the following options is required:"
+                f" {full_options_names}"
             )
         return super().handle_parse_result(ctx, opts, args)
 
@@ -276,6 +281,13 @@ def submit(
 def list(show_deleted: bool, verbose: bool):
     """
     List submitted jobs.
+
+    Note that, in the non-verbose output, `Last Result` is reporting according to
+    whether Automate could successfully submit the job. It's possible for Transfer
+    to run into errors attempting to run your submission, which timer/Automate are not
+    aware of.
+
+    CHECK THE --verbose OUTPUT TO BE CERTAIN YOUR TRANSFERS ARE WORKING.
     """
     response = job_list(show_deleted=show_deleted)
     show_job_list(response, verbose=verbose)
@@ -292,6 +304,13 @@ def list(show_deleted: bool, verbose: bool):
 def status(job_id: uuid.UUID, verbose: bool):
     """
     Return the status of the job with the given ID.
+
+    Note that, in the non-verbose output, `Last Result` is reporting according to
+    whether Automate could successfully submit the job. It's possible for Transfer
+    to run into errors attempting to run your submission, which timer/Automate are not
+    aware of.
+
+    CHECK THE --verbose OUTPUT TO BE CERTAIN YOUR TRANSFERS ARE WORKING.
     """
     show_job(job_status(job_id), verbose=verbose)
 
@@ -417,14 +436,19 @@ def transfer(
         with open(items_file, "r") as f:
             lines = f.readlines()
         items = [line.split() for line in lines]
-        transfer_items = [
-            {
-                "source_path": i[0],
-                "destination_path": i[1],
-                "recursive": bool(strtobool(i[2]))
-            }
-            for i in items
-        ]
+        try:
+            transfer_items = [
+                {
+                    "source_path": i[0],
+                    "destination_path": i[1],
+                    "recursive": bool(strtobool(i[2]))
+                }
+                for i in items
+            ]
+        except ValueError as e:
+            # "invalid truth value"
+            click.echo(f"couldn't parse file: {e}", err=True)
+            sys.exit(1)
     action_body = {
         "source_endpoint_id": source_endpoint,
         "destination_endpoint_id": dest_endpoint,
