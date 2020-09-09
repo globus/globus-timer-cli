@@ -3,6 +3,9 @@
 This is an alpha-version CLI for use with the (also in alpha) timer API, to use
 primarily for scheduling recurring transfer tasks through Globus Automate.
 
+As the CLI and service are still in alpha, please feel free to email the current
+maintainer (rudyard at globus dot org) with feedback or to resolve issues.
+
 ## What is this Service/CLI for?
 
 The timer service can be used to schedule recurring transfer tasks. For example,
@@ -24,6 +27,15 @@ globus-timer-cli`.
 
 ## Transfer Quickstart
 
+To avoid confusion, please read the entirety of this section before using the
+transfer subcommand.
+
+To schedule transfers on your behalf, this CLI requires authentication through
+Globus Auth. The CLI should initially prompt you with a Globus Auth page to
+consent to this usage. Authentication information is thereafter cached in the
+file `~/.config/globus/tokens.json` (so the authentication process is only
+needed on the first use); keep this file secret.
+
 ```
 globus-timer job transfer \
     --name example-job
@@ -38,14 +50,7 @@ Specify any number of `--item`, which will be transferred from the source
 endpoint to the destination endpoint at the interval specified, beginning at the
 start time. The start time is inferred to be in the local timezone if an offset
 is not specified. See `globus-timer job transfer --help` for additional details.
-
-The results should contain a UUID in the field `job_id` which tracks this job in
-the timer service. To check on the results of your transfers, use:
-```
-globus-timer job status JOB_ID
-```
-
-Instead of providing one or more `--item` options, you may instead provider
+Instead of providing one or more `--item` options, you may instead provide
 `--items-file`, which should contain space-separated values like each line is an
 `--item`. For example, the file contents should look like this:
 ```
@@ -53,11 +58,29 @@ Instead of providing one or more `--item` options, you may instead provider
 ~/file2.txt ~/new_file2.txt false
 ```
 
-To schedule transfers on your behalf, this CLI requires authentication through
-Globus Auth. The CLI should initially prompt you with a Globus Auth page to
-consent to this usage. Authentication information is cached in the file
-`~/.config/globus/tokens.json` (so the authentication process is only needed on
-the first use), which should be kept secret.
+After submitting the transfer job, the CLI should return some results containing
+a UUID `job_id`, which tracks this job in the timer service. To check on the
+status of your jobs, use:
+```
+globus-timer job status JOB_ID
+```
+This command defaults to a summarized version of the job's information, which
+does not include the full details for the corresponding task in Transfer. To
+check those, use `-v/--verbose`:
+```
+globus-timer job status --verbose JOB_ID
+```
+Commands return date-times in ISO format, in UTC time, so probably a timezone
+other than your own. No need to worry: the actual start time is still equal to
+your submission's start time, etc.
+
+A final important note: `Last Result` in the non-verbose output extends only as
+far as the Automate system: `SUCCESS` indicates you have successfully submitted
+your job to the timer service, which in turn successfully sent the task to the
+Transfer Action Provider. It's possible that the Transfer service will
+subsequently encounter some error running your transfer. Check the `--verbose`
+output, which includes the actual response from Transfer, to be certain that
+Transfer has run your job successfully.
 
 ## Basic Usage
 
