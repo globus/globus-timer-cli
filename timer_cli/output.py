@@ -6,21 +6,19 @@ import requests
 
 
 def make_table(headers: List[str], rows: List[List[str]]) -> str:
-    max_cell_width = max(map(len, headers))
-    if rows:
-        max_cell_width = max(
-            max_cell_width,
-            max(len(cell) for row in rows for cell in row),
-        )
-    formatted_header = " | ".join(cell.ljust(max_cell_width) for cell in headers)
+    contents = [headers] + rows
+    widths = [max(len(cell) for cell in col) for col in zip(*contents)]
+    formatted_header = " | ".join(
+        cell.ljust(width) for cell, width in zip(headers, widths)
+    )
     formatted_rows = [
-        " | ".join(cell.ljust(max_cell_width) for cell in row)
+        " | ".join(cell.ljust(width) for cell, width in zip(row, widths))
         for row in rows
     ]
     max_row_width = len(formatted_header)
     if formatted_rows:
         max_row_width = max(max_row_width, max(map(len, formatted_rows)))
-    separator = "-" * max_row_width
+    separator = "-|-".join("-" * w for w in widths)
     formatted_rows_block = "\n".join(formatted_rows)
     return f"{formatted_header}\n{separator}\n{formatted_rows_block}"
 
