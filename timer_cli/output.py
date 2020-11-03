@@ -26,4 +26,4 @@ def make_table(headers: List[str], rows: List[List[str]]) -> str:
 def show_response(response: requests.Response):
     if response.status_code >= 400:
         click.echo(f"got response code {response.status_code}", err=True)
-    click.echo(json.dumps(response.json()))
+    click.echo(json.dumps(response.json(), indent=2))

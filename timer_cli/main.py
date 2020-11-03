@@ -4,14 +4,16 @@ TODO:
 """
 
 import datetime
-from distutils.util import strtobool
+import json
 import sys
-from typing import Iterable, List, Optional, Tuple
 import urllib.parse
 import uuid
+from distutils.util import strtobool
+from typing import Iterable, List, Optional, Tuple
 
 import click
-
+from timer_cli.auth import get_current_user
+from timer_cli.auth import logout as auth_logout
 from timer_cli.job import (
     job_delete,
     job_list,
@@ -20,8 +22,7 @@ from timer_cli.job import (
     show_job,
     show_job_list,
 )
-from timer_cli.output import show_response
-
+from timer_cli.output import make_table, show_response
 
 # List of datetime formats accepted as input. (`%z` means timezone.)
 DATETIME_FORMATS = [
@@ -89,7 +90,7 @@ class MutuallyExclusive(click.Option):
     """
 
     def __init__(self, *args, **kwargs):
-        self.mutually_exclusive = kwargs.pop('mutually_exclusive')
+        self.mutually_exclusive = kwargs.pop("mutually_exclusive")
         assert self.mutually_exclusive, "'mutually_exclusive' parameter required"
         super().__init__(*args, **kwargs)
 
@@ -102,11 +103,13 @@ class MutuallyExclusive(click.Option):
                 f" `{self.mutually_exclusive}`"
             )
         if not (self_exists or mutually_exclusive_exists):
-            full_options_names = ", ".join([
-                "/".join(opt.opts)
-                for opt in ctx.command.params
-                if opt.name in self.mutually_exclusive or opt == self
-            ])
+            full_options_names = ", ".join(
+                [
+                    "/".join(opt.opts)
+                    for opt in ctx.command.params
+                    if opt.name in self.mutually_exclusive or opt == self
+                ]
+            )
             raise click.UsageError(
                 "Illegal usage: one of the following options is required:"
                 f" {full_options_names}"
@@ -137,11 +140,13 @@ class JointlyExhaustive(click.Option):
         options_exist.append(self.name in opts)
         if not any(options_exist):
             ctx = click.get_current_context()
-            full_options_names = ", ".join([
-                "/".join(opt.opts)
-                for opt in ctx.command.params
-                if opt.name in self.jointly_exhaustive or opt == self
-            ])
+            full_options_names = ", ".join(
+                [
+                    "/".join(opt.opts)
+                    for opt in ctx.command.params
+                    if opt.name in self.jointly_exhaustive or opt == self
+                ]
+            )
             raise click.UsageError(
                 "Must provide at least one of the following options:"
                 f" {full_options_names}"
@@ -187,9 +192,7 @@ def job():
     "--start",
     required=False,
     type=click.DateTime(formats=DATETIME_FORMATS),
-    help=(
-        "Start time for the job (defaults to current time)"
-    ),
+    help=("Start time for the job (defaults to current time)"),
 )
 @click.option(
     "--interval",
@@ -295,13 +298,19 @@ def list(show_deleted: bool, verbose: bool):
 
 @job.command(cls=Command)
 @click.option(
+    "--show-deleted",
+    required=False,
+    is_flag=True,
+    help="Whether to include deleted jobs in the output",
+)
+@click.option(
     "--verbose",
     "-v",
     is_flag=True,
     help="Show full JSON output",
 )
 @click.argument("job_id", type=uuid.UUID)
-def status(job_id: uuid.UUID, verbose: bool):
+def status(job_id: uuid.UUID, show_deleted: bool, verbose: bool):
     """
     Return the status of the job with the given ID.
 
@@ -312,13 +321,19 @@ def status(job_id: uuid.UUID, verbose: bool):
 
     CHECK THE --verbose OUTPUT TO BE CERTAIN YOUR TRANSFERS ARE WORKING.
     """
-    show_job(job_status(job_id), verbose=verbose)
+    show_job(job_status(job_id, show_deleted=show_deleted), verbose=verbose)
 
 
 @job.command(cls=Command)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show full JSON output",
+)
 @click.argument("job_id", type=uuid.UUID)
-def delete(job_id: uuid.UUID):
-    show_response(job_delete(job_id))
+def delete(job_id: uuid.UUID, verbose: bool):
+    show_job(job_delete(job_id), verbose=verbose)
 
 
 @job.command(cls=Command)
@@ -332,9 +347,7 @@ def delete(job_id: uuid.UUID):
     "--start",
     required=False,
     type=click.DateTime(formats=DATETIME_FORMATS),
-    help=(
-        "Start time for the job (defaults to current time)"
-    ),
+    help=("Start time for the job (defaults to current time)"),
 )
 @click.option(
     "--interval",
@@ -432,7 +445,7 @@ def transfer(
             {"source_path": i[0], "destination_path": i[1], "recursive": i[2]}
             for i in item
         ]
-    else:
+    elif items_file:
         with open(items_file, "r") as f:
             lines = f.readlines()
         items = [line.split() for line in lines]
@@ -441,7 +454,7 @@ def transfer(
                 {
                     "source_path": i[0],
                     "destination_path": i[1],
-                    "recursive": bool(strtobool(i[2]))
+                    "recursive": bool(strtobool(i[2])),
                 }
                 for i in items
             ]
@@ -456,6 +469,8 @@ def transfer(
     }
     if label:
         action_body["label"] = label
+    else:
+        action_body["label"] = f"From Timer service job named {name}"
     if sync_level:
         action_body["sync_level"] = sync_level
     callback_body = {"body": action_body}
@@ -472,9 +487,35 @@ def transfer(
     show_job(response, verbose=verbose)
 
 
+@cli.command()
+@click.option(
+    "--format",
+    type=click.Choice(["brief", "full", "json"], case_sensitive=False),
+    default="brief",
+    help="Show full user details",
+)
+def whoami(format: str):
+    user_info = get_current_user()
+    full_fields = ["name", "email", "preferred_username", "organization"]
+    if format == "brief":
+        click.echo(f"{user_info['preferred_username']}")
+    else:
+        if format == "full":
+            click.echo(make_table(full_fields, [[user_info[k] for k in full_fields]]))
+        elif format == "json":
+            click.echo(json.dumps({k: user_info[k] for k in full_fields}, indent=2))
+
+
+@cli.command()
+def logout():
+    logged_out = auth_logout()
+    if logged_out:
+        click.echo("Successfully logged out.")
+
+
 def main():
     cli()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()
