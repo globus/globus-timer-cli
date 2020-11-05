@@ -12,8 +12,10 @@ from distutils.util import strtobool
 from typing import Iterable, List, Optional, Tuple
 
 import click
+
 from timer_cli.auth import get_current_user
 from timer_cli.auth import logout as auth_logout
+from timer_cli.auth import revoke_login
 from timer_cli.job import (
     job_delete,
     job_list,
@@ -176,7 +178,7 @@ class URL(click.ParamType):
 cli = click.Group()
 
 
-@cli.group()
+@cli.group(help="Commands for managing periodic Globus Transfer jobs.")
 def job():
     pass
 
@@ -201,10 +203,7 @@ def job():
     help="Interval in seconds at which the job should run",
 )
 @click.option(
-    "--scope",
-    required=True,
-    type=str,
-    help="Globus Auth scope needed for this action",
+    "--scope", required=True, type=str, help="Globus Auth scope needed for this action",
 )
 @click.option(
     "--action-url",
@@ -238,10 +237,7 @@ def job():
     mutually_exclusive="action_body",
 )
 @click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Show full JSON output",
+    "--verbose", "-v", is_flag=True, help="Show full JSON output",
 )
 def submit(
     name: str,
@@ -257,13 +253,7 @@ def submit(
     Submit a job.
     """
     response = job_submit(
-        name,
-        start,
-        interval,
-        scope,
-        action_url,
-        action_body,
-        action_file,
+        name, start, interval, scope, action_url, action_body, action_file,
     )
     show_job(response, verbose=verbose)
 
@@ -276,10 +266,7 @@ def submit(
     help="Whether to include deleted jobs in the output",
 )
 @click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Show full JSON output",
+    "--verbose", "-v", is_flag=True, help="Show full JSON output",
 )
 def list(show_deleted: bool, verbose: bool):
     """
@@ -304,10 +291,7 @@ def list(show_deleted: bool, verbose: bool):
     help="Whether to include deleted jobs in the output",
 )
 @click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Show full JSON output",
+    "--verbose", "-v", is_flag=True, help="Show full JSON output",
 )
 @click.argument("job_id", type=uuid.UUID)
 def status(job_id: uuid.UUID, show_deleted: bool, verbose: bool):
@@ -326,10 +310,7 @@ def status(job_id: uuid.UUID, show_deleted: bool, verbose: bool):
 
 @job.command(cls=Command)
 @click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Show full JSON output",
+    "--verbose", "-v", is_flag=True, help="Show full JSON output",
 )
 @click.argument("job_id", type=uuid.UUID)
 def delete(job_id: uuid.UUID, verbose: bool):
@@ -414,11 +395,7 @@ def delete(job_id: uuid.UUID, verbose: bool):
     help="file containing table of items to transfer",
 )
 @click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    default=False,
-    help="Show full JSON output",
+    "--verbose", "-v", is_flag=True, default=False, help="Show full JSON output",
 )
 def transfer(
     name: str,
@@ -487,12 +464,26 @@ def transfer(
     show_job(response, verbose=verbose)
 
 
-@cli.command()
+@cli.group(help="Commands related to managing your Globus Auth credentials.")
+def session():
+    pass
+
+
+@session.command(
+    help="Cache identity information for future operations. This is "
+    "optional, as it will be done on demand if this command is not used."
+)
+def login():
+    user_info = get_current_user()
+    click.echo(f"Logged in as {user_info['preferred_username']}")
+
+
+@session.command(help="Print information about your currently logged in session.")
 @click.option(
     "--format",
     type=click.Choice(["brief", "full", "json"], case_sensitive=False),
     default="brief",
-    help="Show full user details",
+    help="Select the detail level and format for output.",
 )
 def whoami(format: str):
     user_info = get_current_user()
@@ -506,11 +497,22 @@ def whoami(format: str):
             click.echo(json.dumps({k: user_info[k] for k in full_fields}, indent=2))
 
 
-@cli.command()
+@session.command(help="Remove the saved Globus Auth identity identity information.")
 def logout():
     logged_out = auth_logout()
     if logged_out:
         click.echo("Successfully logged out.")
+    else:
+        click.echo("Unable to remove stored tokens to perform the logout.")
+
+
+@session.command(help="Remove Timer's authorization to use your credentials.")
+def revoke():
+    revoked = revoke_login()
+    if revoked:
+        click.echo("Successfully revoked permission for all Timer operations.")
+    else:
+        click.echo("Unable to revoke login.")
 
 
 def main():

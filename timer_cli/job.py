@@ -8,7 +8,6 @@ from typing import Optional
 
 import click
 import requests
-
 from timer_cli.auth import get_access_token_for_scope
 from timer_cli.output import make_table, show_response
 
@@ -114,7 +113,6 @@ def job_status(job_id: uuid.UUID, show_deleted: bool = False) -> requests.Respon
         )
     except requests.RequestException as e:
         handle_requests_exception(e)
-        return None
 
 
 def job_delete(job_id: uuid.UUID) -> requests.Response:
@@ -127,7 +125,6 @@ def job_delete(job_id: uuid.UUID) -> requests.Response:
         )
     except requests.RequestException as e:
         handle_requests_exception(e)
-        return None
 
 
 def _get_job_result(job_json: dict) -> str:

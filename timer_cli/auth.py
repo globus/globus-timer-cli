@@ -78,7 +78,6 @@ def _get_authorizer_for_scope(
             return authorizers[scope]
         except (LocalServerError, AuthAPIError) as e:
             click.echo(f"Login Unsuccessful: {str(e)}", err=True)
-            return None
     return None
 
 
@@ -92,7 +91,25 @@ def get_access_token_for_scope(
         return None
 
 
-def logout(token_store: Optional[str] = None) -> bool:
+def logout(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
+    try:
+        os.remove(token_store)
+        return True
+    except OSError:
+        return False
+
+
+def revoke_login(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
+    """This calls the fair research login function logout on the client. This has two side effects:
+
+    1. It revokes the tokens that it has been issued. This means that any place those
+    tokens (including refresh tokens) are in use, they will no longer be valid
+    tokens. This can be a problem for services like timer that refresh and re-use tokens
+    over a long period of time.
+
+    2. It removes the token store file. This is good as it essentially causes the user to
+    re-login on next use.
+    """
     client = _get_native_client(token_store=token_store)
     if client:
         client.logout()
@@ -100,10 +117,10 @@ def logout(token_store: Optional[str] = None) -> bool:
 
 
 def get_current_user(token_store: Optional[str] = None) -> Dict[str, Any]:
-    authorizer = _get_authorizer_for_scope(
-        AUTH_SCOPES[0],
-        token_store=token_store,
-    )
+    # We don't really care which scope from the AUTH_SCOPE list we use here since they
+    # all share the same resource server (Auth itself) and therefore an authorizer for
+    # any of them grants us access to the same resource server.
+    authorizer = _get_authorizer_for_scope(AUTH_SCOPES[0], token_store=token_store,)
     auth_client = AuthClient(authorizer=authorizer)
     user_info = auth_client.oauth2_userinfo()
     return user_info.data
