@@ -8,6 +8,7 @@ from typing import Optional
 
 import click
 import requests
+
 from timer_cli.auth import get_access_token_for_scope
 from timer_cli.output import make_table, show_response
 
@@ -42,16 +43,16 @@ def job_submit(
     interval: int,
     scope: str,
     action_url: urllib.parse.ParseResult,
-    action_body: Optional[str],
-    action_file: Optional[click.File],
+    action_body: Optional[str] = None,
+    action_file: Optional[click.File] = None,
     callback_body: Optional[dict] = None,
 ) -> requests.Response:
     if not callback_body:
         try:
             if action_body:
-                callback_body = action_body.strip("'").strip('"')
+                action_body = action_body.strip("'").strip('"')
                 callback_body = json.loads(action_body)
-            else:  # action_file
+            elif action_file is not None:  # action_file
                 callback_body = json.load(action_file)
         except (TypeError, ValueError) as e:
             raise click.BadOptionUsage(

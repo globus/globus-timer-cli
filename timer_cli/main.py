@@ -8,8 +8,9 @@ import json
 import sys
 import urllib.parse
 import uuid
+from csv import DictReader
 from distutils.util import strtobool
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import click
 
@@ -24,7 +25,7 @@ from timer_cli.job import (
     show_job,
     show_job_list,
 )
-from timer_cli.output import make_table, show_response
+from timer_cli.output import make_table
 
 # List of datetime formats accepted as input. (`%z` means timezone.)
 DATETIME_FORMATS = [
@@ -38,6 +39,36 @@ DATETIME_FORMATS = [
 
 def _un_parse_opt(opt: str):
     return "--" + opt.replace("_", "-")
+
+
+def _read_csv(
+    file_name: str,
+    fieldnames=["source_path", "destination_path", "recursive"],
+    comment_char: str = "#",
+) -> Generator[Dict[str, Union[str, bool]], None, None]:
+    def decomment(f):
+        for row in f:
+            if not row.startswith(comment_char):
+                yield row
+
+    def transform_val(k: str, v: str) -> Union[str, bool]:
+        v = v.strip()
+        # Was hoping to make this a bit more generic, but spent enough time on it so,
+        # handling the case we actually need here
+        if k == "recursive":
+            try:
+                return bool(strtobool(v))
+            except ValueError:
+                # "invalid truth value"
+                click.echo(f"In file {file_name}: couldn't parse {v} as a truth value")
+                sys.exit(1)
+        else:
+            return v
+
+    with open(file_name, "r") as f:
+        reader = DictReader(decomment(f), fieldnames=fieldnames)
+        for row_dict in reader:
+            yield {k: transform_val(k, v) for k, v in row_dict.items()}
 
 
 def show_usage(cmd: click.Command):
@@ -203,7 +234,10 @@ def job():
     help="Interval in seconds at which the job should run",
 )
 @click.option(
-    "--scope", required=True, type=str, help="Globus Auth scope needed for this action",
+    "--scope",
+    required=True,
+    type=str,
+    help="Globus Auth scope needed for this action",
 )
 @click.option(
     "--action-url",
@@ -237,7 +271,10 @@ def job():
     mutually_exclusive="action_body",
 )
 @click.option(
-    "--verbose", "-v", is_flag=True, help="Show full JSON output",
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show full JSON output",
 )
 def submit(
     name: str,
@@ -253,7 +290,13 @@ def submit(
     Submit a job.
     """
     response = job_submit(
-        name, start, interval, scope, action_url, action_body, action_file,
+        name,
+        start,
+        interval,
+        scope,
+        action_url,
+        action_body,
+        action_file,
     )
     show_job(response, verbose=verbose)
 
@@ -266,7 +309,10 @@ def submit(
     help="Whether to include deleted jobs in the output",
 )
 @click.option(
-    "--verbose", "-v", is_flag=True, help="Show full JSON output",
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show full JSON output",
 )
 def list(show_deleted: bool, verbose: bool):
     """
@@ -291,7 +337,10 @@ def list(show_deleted: bool, verbose: bool):
     help="Whether to include deleted jobs in the output",
 )
 @click.option(
-    "--verbose", "-v", is_flag=True, help="Show full JSON output",
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show full JSON output",
 )
 @click.argument("job_id", type=uuid.UUID)
 def status(job_id: uuid.UUID, show_deleted: bool, verbose: bool):
@@ -310,7 +359,10 @@ def status(job_id: uuid.UUID, show_deleted: bool, verbose: bool):
 
 @job.command(cls=Command)
 @click.option(
-    "--verbose", "-v", is_flag=True, help="Show full JSON output",
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show full JSON output",
 )
 @click.argument("job_id", type=uuid.UUID)
 def delete(job_id: uuid.UUID, verbose: bool):
@@ -395,7 +447,11 @@ def delete(job_id: uuid.UUID, verbose: bool):
     help="file containing table of items to transfer",
 )
 @click.option(
-    "--verbose", "-v", is_flag=True, default=False, help="Show full JSON output",
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    help="Show full JSON output",
 )
 def transfer(
     name: str,
@@ -417,28 +473,21 @@ def transfer(
         "https://actions.automate.globus.org/transfer/transfer/run"
     )
     scope = "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
+    # Just declare it for typing purposes
+    transfer_items: List[Dict[str, Union[str, bool]]] = []
     if item:
         transfer_items = [
-            {"source_path": i[0], "destination_path": i[1], "recursive": i[2]}
+            {
+                "source_path": i[0].strip(),
+                "destination_path": i[1].strip(),
+                "recursive": i[2],
+            }
             for i in item
         ]
     elif items_file:
-        with open(items_file, "r") as f:
-            lines = f.readlines()
-        items = [line.split() for line in lines]
-        try:
-            transfer_items = [
-                {
-                    "source_path": i[0],
-                    "destination_path": i[1],
-                    "recursive": bool(strtobool(i[2])),
-                }
-                for i in items
-            ]
-        except ValueError as e:
-            # "invalid truth value"
-            click.echo(f"couldn't parse file: {e}", err=True)
-            sys.exit(1)
+        # Unwind the generator
+        transfer_items = [i for i in _read_csv(items_file)]
+
     action_body = {
         "source_endpoint_id": source_endpoint,
         "destination_endpoint_id": dest_endpoint,

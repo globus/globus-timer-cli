@@ -157,15 +157,18 @@ parameter. An example of the file which would perform the same
 operations as the example above would look like:
 
 ```
-~/file1.txt ~/new_file1.txt false
-~/file2.txt ~/new_file2.txt false
+# This is my items file
+~/file1.txt, ~/new_file1.txt, false
+~/file2.txt, ~/new_file2.txt, false
 ```
 
-If this file was named `transfer_items.txt` it would be specified with the parameter:
+If this file was named `transfer_items.csv` it would be specified with the parameter:
 
 ```
---items-file transfer_items.txt
+--items-file transfer_items.csv
 ```
+
+Note that this is a CSV file. The individual parts of the item are separated with commas, and lines starting with a `#` are considered to be comments and are not processed as items for the transfer job.
 
 ## Monitoring and Controlling Submitted jobs 
 
