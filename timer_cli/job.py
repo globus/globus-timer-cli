@@ -1,18 +1,26 @@
 import datetime
 import json
+import os
 import sys
-from typing import Optional
 import urllib
 import uuid
+from typing import Optional
 
 import click
 import requests
 
-from timer_cli.auth import get_access_token
+from timer_cli.auth import get_access_token_for_scope
 from timer_cli.output import make_table, show_response
 
 # how long to wait before giving up on requests to the API
 TIMEOUT = 10
+
+
+_DEFAULT_TIMER_SERVICE_URL = "https://sandbox.timer.automate.globus.org"
+
+TIMER_SERVICE_URL = os.environ.get("TIMER_SERVICE_URL", _DEFAULT_TIMER_SERVICE_URL)
+
+_TIMER_JOBS_URL = f"{TIMER_SERVICE_URL}/jobs"
 
 
 def handle_requests_exception(e: Exception):
@@ -25,7 +33,7 @@ def get_headers(token_store: Optional[str] = None) -> dict:
     Assemble any needed headers that should go in all requests to the timer API, such
     as the access token.
     """
-    access_token = get_access_token(token_store=token_store)
+    access_token = get_access_token_for_scope(token_store=token_store)
     return {"Authorization": f"Bearer {access_token}"}
 
 
@@ -35,16 +43,16 @@ def job_submit(
     interval: int,
     scope: str,
     action_url: urllib.parse.ParseResult,
-    action_body: Optional[str],
-    action_file: Optional[click.File],
+    action_body: Optional[str] = None,
+    action_file: Optional[click.File] = None,
     callback_body: Optional[dict] = None,
 ) -> requests.Response:
     if not callback_body:
         try:
             if action_body:
-                callback_body = action_body.strip("'").strip('"')
+                action_body = action_body.strip("'").strip('"')
                 callback_body = json.loads(action_body)
-            else:  # action_file
+            elif action_file is not None:  # action_file
                 callback_body = json.load(action_file)
         except (TypeError, ValueError) as e:
             raise click.BadOptionUsage(
@@ -67,7 +75,7 @@ def job_submit(
     headers = get_headers()
     try:
         return requests.post(
-            "https://sandbox.timer.automate.globus.org/jobs/",
+            _TIMER_JOBS_URL,
             json=req_json,
             headers=headers,
             timeout=TIMEOUT,
@@ -83,7 +91,7 @@ def job_list(show_deleted: bool = False) -> requests.Response:
         params["show_deleted"] = True
     try:
         return requests.get(
-            f"https://sandbox.timer.automate.globus.org/jobs/",
+            f"{_TIMER_JOBS_URL}",
             params=params,
             headers=headers,
             timeout=TIMEOUT,
@@ -92,30 +100,32 @@ def job_list(show_deleted: bool = False) -> requests.Response:
         handle_requests_exception(e)
 
 
-def job_status(job_id: uuid.UUID) -> requests.Response:
+def job_status(job_id: uuid.UUID, show_deleted: bool = False) -> requests.Response:
     headers = get_headers()
+    params = dict()
+    if show_deleted:
+        params["show_deleted"] = True
     try:
         return requests.get(
-            f"https://sandbox.timer.automate.globus.org/jobs/{job_id}",
+            f"{_TIMER_JOBS_URL}/{job_id}",
+            params=params,
             headers=headers,
             timeout=TIMEOUT,
         )
     except requests.RequestException as e:
         handle_requests_exception(e)
-        return
 
 
 def job_delete(job_id: uuid.UUID) -> requests.Response:
     headers = get_headers()
     try:
         return requests.delete(
-            f"https://sandbox.timer.automate.globus.org/jobs/{job_id}",
+            f"{_TIMER_JOBS_URL}/{job_id}",
             headers=headers,
             timeout=TIMEOUT,
         )
     except requests.RequestException as e:
         handle_requests_exception(e)
-        return
 
 
 def _get_job_result(job_json: dict) -> str:
@@ -132,6 +142,12 @@ def _get_job_result(job_json: dict) -> str:
 
 
 def show_job(response: requests.Response, verbose: bool):
+    if response.status_code >= 300:
+        click.echo(
+            f"Unable to retrieve job, request status {response.status_code} "
+            f"body: {response.text}"
+        )
+        return
     if verbose:
         return show_response(response)
     try:

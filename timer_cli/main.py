@@ -4,14 +4,19 @@ TODO:
 """
 
 import datetime
-from distutils.util import strtobool
+import json
 import sys
-from typing import Iterable, List, Optional, Tuple
 import urllib.parse
 import uuid
+from csv import DictReader
+from distutils.util import strtobool
+from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import click
 
+from timer_cli.auth import get_current_user
+from timer_cli.auth import logout as auth_logout
+from timer_cli.auth import revoke_login
 from timer_cli.job import (
     job_delete,
     job_list,
@@ -20,8 +25,7 @@ from timer_cli.job import (
     show_job,
     show_job_list,
 )
-from timer_cli.output import show_response
-
+from timer_cli.output import make_table
 
 # List of datetime formats accepted as input. (`%z` means timezone.)
 DATETIME_FORMATS = [
@@ -35,6 +39,36 @@ DATETIME_FORMATS = [
 
 def _un_parse_opt(opt: str):
     return "--" + opt.replace("_", "-")
+
+
+def _read_csv(
+    file_name: str,
+    fieldnames=["source_path", "destination_path", "recursive"],
+    comment_char: str = "#",
+) -> Generator[Dict[str, Union[str, bool]], None, None]:
+    def decomment(f):
+        for row in f:
+            if not row.startswith(comment_char):
+                yield row
+
+    def transform_val(k: str, v: str) -> Union[str, bool]:
+        v = v.strip()
+        # Was hoping to make this a bit more generic, but spent enough time on it so,
+        # handling the case we actually need here
+        if k == "recursive":
+            try:
+                return bool(strtobool(v))
+            except ValueError:
+                # "invalid truth value"
+                click.echo(f"In file {file_name}: couldn't parse {v} as a truth value")
+                sys.exit(1)
+        else:
+            return v
+
+    with open(file_name, "r") as f:
+        reader = DictReader(decomment(f), fieldnames=fieldnames)
+        for row_dict in reader:
+            yield {k: transform_val(k, v) for k, v in row_dict.items()}
 
 
 def show_usage(cmd: click.Command):
@@ -89,7 +123,7 @@ class MutuallyExclusive(click.Option):
     """
 
     def __init__(self, *args, **kwargs):
-        self.mutually_exclusive = kwargs.pop('mutually_exclusive')
+        self.mutually_exclusive = kwargs.pop("mutually_exclusive")
         assert self.mutually_exclusive, "'mutually_exclusive' parameter required"
         super().__init__(*args, **kwargs)
 
@@ -102,11 +136,13 @@ class MutuallyExclusive(click.Option):
                 f" `{self.mutually_exclusive}`"
             )
         if not (self_exists or mutually_exclusive_exists):
-            full_options_names = ", ".join([
-                "/".join(opt.opts)
-                for opt in ctx.command.params
-                if opt.name in self.mutually_exclusive or opt == self
-            ])
+            full_options_names = ", ".join(
+                [
+                    "/".join(opt.opts)
+                    for opt in ctx.command.params
+                    if opt.name in self.mutually_exclusive or opt == self
+                ]
+            )
             raise click.UsageError(
                 "Illegal usage: one of the following options is required:"
                 f" {full_options_names}"
@@ -137,11 +173,13 @@ class JointlyExhaustive(click.Option):
         options_exist.append(self.name in opts)
         if not any(options_exist):
             ctx = click.get_current_context()
-            full_options_names = ", ".join([
-                "/".join(opt.opts)
-                for opt in ctx.command.params
-                if opt.name in self.jointly_exhaustive or opt == self
-            ])
+            full_options_names = ", ".join(
+                [
+                    "/".join(opt.opts)
+                    for opt in ctx.command.params
+                    if opt.name in self.jointly_exhaustive or opt == self
+                ]
+            )
             raise click.UsageError(
                 "Must provide at least one of the following options:"
                 f" {full_options_names}"
@@ -171,7 +209,7 @@ class URL(click.ParamType):
 cli = click.Group()
 
 
-@cli.group()
+@cli.group(help="Commands for managing periodic Globus Transfer jobs.")
 def job():
     pass
 
@@ -187,9 +225,7 @@ def job():
     "--start",
     required=False,
     type=click.DateTime(formats=DATETIME_FORMATS),
-    help=(
-        "Start time for the job (defaults to current time)"
-    ),
+    help=("Start time for the job (defaults to current time)"),
 )
 @click.option(
     "--interval",
@@ -295,13 +331,19 @@ def list(show_deleted: bool, verbose: bool):
 
 @job.command(cls=Command)
 @click.option(
+    "--show-deleted",
+    required=False,
+    is_flag=True,
+    help="Whether to include deleted jobs in the output",
+)
+@click.option(
     "--verbose",
     "-v",
     is_flag=True,
     help="Show full JSON output",
 )
 @click.argument("job_id", type=uuid.UUID)
-def status(job_id: uuid.UUID, verbose: bool):
+def status(job_id: uuid.UUID, show_deleted: bool, verbose: bool):
     """
     Return the status of the job with the given ID.
 
@@ -312,13 +354,19 @@ def status(job_id: uuid.UUID, verbose: bool):
 
     CHECK THE --verbose OUTPUT TO BE CERTAIN YOUR TRANSFERS ARE WORKING.
     """
-    show_job(job_status(job_id), verbose=verbose)
+    show_job(job_status(job_id, show_deleted=show_deleted), verbose=verbose)
 
 
 @job.command(cls=Command)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show full JSON output",
+)
 @click.argument("job_id", type=uuid.UUID)
-def delete(job_id: uuid.UUID):
-    show_response(job_delete(job_id))
+def delete(job_id: uuid.UUID, verbose: bool):
+    show_job(job_delete(job_id), verbose=verbose)
 
 
 @job.command(cls=Command)
@@ -332,9 +380,7 @@ def delete(job_id: uuid.UUID):
     "--start",
     required=False,
     type=click.DateTime(formats=DATETIME_FORMATS),
-    help=(
-        "Start time for the job (defaults to current time)"
-    ),
+    help=("Start time for the job (defaults to current time)"),
 )
 @click.option(
     "--interval",
@@ -427,28 +473,21 @@ def transfer(
         "https://actions.automate.globus.org/transfer/transfer/run"
     )
     scope = "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
+    # Just declare it for typing purposes
+    transfer_items: List[Dict[str, Union[str, bool]]] = []
     if item:
         transfer_items = [
-            {"source_path": i[0], "destination_path": i[1], "recursive": i[2]}
+            {
+                "source_path": i[0].strip(),
+                "destination_path": i[1].strip(),
+                "recursive": i[2],
+            }
             for i in item
         ]
-    else:
-        with open(items_file, "r") as f:
-            lines = f.readlines()
-        items = [line.split() for line in lines]
-        try:
-            transfer_items = [
-                {
-                    "source_path": i[0],
-                    "destination_path": i[1],
-                    "recursive": bool(strtobool(i[2]))
-                }
-                for i in items
-            ]
-        except ValueError as e:
-            # "invalid truth value"
-            click.echo(f"couldn't parse file: {e}", err=True)
-            sys.exit(1)
+    elif items_file:
+        # Unwind the generator
+        transfer_items = [i for i in _read_csv(items_file)]
+
     action_body = {
         "source_endpoint_id": source_endpoint,
         "destination_endpoint_id": dest_endpoint,
@@ -456,6 +495,8 @@ def transfer(
     }
     if label:
         action_body["label"] = label
+    else:
+        action_body["label"] = f"From Timer service job named {name}"
     if sync_level:
         action_body["sync_level"] = sync_level
     callback_body = {"body": action_body}
@@ -472,9 +513,60 @@ def transfer(
     show_job(response, verbose=verbose)
 
 
+@cli.group(help="Commands related to managing your Globus Auth credentials.")
+def session():
+    pass
+
+
+@session.command(
+    help="Cache identity information for future operations. This is "
+    "optional, as it will be done on demand if this command is not used."
+)
+def login():
+    user_info = get_current_user()
+    click.echo(f"Logged in as {user_info['preferred_username']}")
+
+
+@session.command(help="Print information about your currently logged in session.")
+@click.option(
+    "--format",
+    type=click.Choice(["brief", "full", "json"], case_sensitive=False),
+    default="brief",
+    help="Select the detail level and format for output.",
+)
+def whoami(format: str):
+    user_info = get_current_user()
+    full_fields = ["name", "email", "preferred_username", "organization"]
+    if format == "brief":
+        click.echo(f"{user_info['preferred_username']}")
+    else:
+        if format == "full":
+            click.echo(make_table(full_fields, [[user_info[k] for k in full_fields]]))
+        elif format == "json":
+            click.echo(json.dumps({k: user_info[k] for k in full_fields}, indent=2))
+
+
+@session.command(help="Remove the saved Globus Auth identity identity information.")
+def logout():
+    logged_out = auth_logout()
+    if logged_out:
+        click.echo("Successfully logged out.")
+    else:
+        click.echo("Unable to remove stored tokens to perform the logout.")
+
+
+@session.command(help="Remove Timer's authorization to use your credentials.")
+def revoke():
+    revoked = revoke_login()
+    if revoked:
+        click.echo("Successfully revoked permission for all Timer operations.")
+    else:
+        click.echo("Unable to revoke login.")
+
+
 def main():
     cli()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()
