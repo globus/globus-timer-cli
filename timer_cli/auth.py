@@ -3,11 +3,13 @@ import pathlib
 from typing import Any, Dict, List, Optional
 
 import click
-from fair_research_login import JSONTokenStorage
 from fair_research_login.client import NativeClient
-from fair_research_login.exc import LocalServerError
-from globus_sdk import AuthClient, RefreshTokenAuthorizer
+from fair_research_login.exc import LoadError, LoginException
+from globus_sdk import AuthClient
+from globus_sdk.authorizers import GlobusAuthorizer
 from globus_sdk.exc import AuthAPIError
+
+from timer_cli.dynamic_dep_storage import DynamicDependencyTokenStorage
 
 CLIENT_ID = "bc77d044-1f42-46cc-9702-87f756cd08a6"
 CLIENT_NAME = "Globus Timer Service Command Line"
@@ -19,9 +21,11 @@ AUTH_SCOPES = [
 ]
 ALL_SCOPES = AUTH_SCOPES + [TIMER_SERVICE_SCOPE]
 TOKEN_DIRECTORY = f"{pathlib.Path.home()}/.config/globus"
-DEFAULT_TOKEN_FILE = str(
-    pathlib.Path(TOKEN_DIRECTORY).joinpath(pathlib.Path("tokens.json"))
-)
+# DEFAULT_TOKEN_FILE = str(
+#    pathlib.Path(TOKEN_DIRECTORY).joinpath(pathlib.Path(".globus_timer_tokens.cfg"))
+# )
+
+DEFAULT_TOKEN_FILE = pathlib.Path.home() / pathlib.Path(".globus_timer_tokens.cfg")
 
 
 def _create_token_directory():
@@ -29,6 +33,7 @@ def _create_token_directory():
 
 
 def _get_native_client(
+    scopes: List[str],
     token_store: Optional[str] = None,
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
@@ -41,7 +46,7 @@ def _get_native_client(
         return NativeClient(
             client_id=CLIENT_ID,
             app_name=CLIENT_NAME,
-            token_storage=JSONTokenStorage(token_store),
+            token_storage=DynamicDependencyTokenStorage(token_store, scopes),
         )
     except FileNotFoundError:
         click.echo(
@@ -55,36 +60,62 @@ def _get_native_client(
         return None
 
 
-def _get_authorizer_for_scope(
+def get_authorizers_for_scope(
+    scopes: list,
+    token_store: Optional[str] = None,
+    client_id: str = CLIENT_ID,
+    client_name: str = CLIENT_NAME,
+) -> Optional[GlobusAuthorizer]:
+    client = _get_native_client(
+        scopes, token_store=token_store, client_id=client_id, client_name=client_name
+    )
+    try:
+        dd_scopes = DynamicDependencyTokenStorage.split_dynamic_scopes(scopes)
+        base_scopes = list(dd_scopes)
+        try:
+            # This first attempt will load tokens with logging in. Note that
+            # only base_scopes are passed to the client. FRL currently can't
+            # handle dynamic scopes, so storage will automatically determine
+            # the correct scopes to load based on the scopes passed in above.
+            return client.get_authorizers_by_scope(requested_scopes=base_scopes)
+        except (LoadError, KeyError):
+            client.login(
+                # Loading tokens failed, so a login is initiated. Note that
+                # the full dynamic dependencies are passed here. Since these
+                # are automatically passed to Globus Auth, FRL doesn't notice
+                # they are scopes with dynamic dependencies.
+                requested_scopes=scopes,
+                refresh_tokens=True,
+            )
+            return client.get_authorizers_by_scope(requested_scopes=base_scopes)
+    except (LoginException, AuthAPIError) as e:
+        print(f"Login Unsuccessful: {str(e)}")
+        raise SystemExit
+
+
+def get_authorizer_for_scope(
     scope: str,
     all_scopes: List[str] = ALL_SCOPES,
     token_store: Optional[str] = None,
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
-) -> Optional[RefreshTokenAuthorizer]:
-    client = _get_native_client(
-        token_store=token_store, client_id=client_id, client_name=client_name
+) -> Optional[GlobusAuthorizer]:
+    authorizers = get_authorizers_for_scope(
+        [scope] + all_scopes,
+        token_store=token_store,
+        client_id=client_id,
+        client_name=client_name,
     )
-    if client is not None:
-        ssh_active = "SSH_CLIENT" in os.environ or "SSH_CONNECTION" in os.environ
-        try:
-            client.login(
-                requested_scopes=all_scopes,
-                refresh_tokens=True,
-                no_browser=ssh_active,
-                no_local_server=ssh_active,
-            )
-            authorizers = client.get_authorizers_by_scope(requested_scopes=all_scopes)
-            return authorizers[scope]
-        except (LocalServerError, AuthAPIError) as e:
-            click.echo(f"Login Unsuccessful: {str(e)}", err=True)
-    return None
+    base_scope = scope.split("[", 1)[0]
+    authorizer = authorizers.get(base_scope)
+    return authorizer
 
 
 def get_access_token_for_scope(
-    token_store: Optional[str] = None, token_scope: str = TIMER_SERVICE_SCOPE
+    token_store: Optional[str] = None,
+    token_scope: str = TIMER_SERVICE_SCOPE,
 ) -> Optional[str]:
-    authorizer = _get_authorizer_for_scope(token_scope, token_store=token_store)
+    authorizer = get_authorizer_for_scope(token_scope, token_store=token_store)
     if authorizer is not None:
         return authorizer.access_token
     else:
@@ -120,7 +151,7 @@ def get_current_user(token_store: Optional[str] = None) -> Dict[str, Any]:
     # We don't really care which scope from the AUTH_SCOPE list we use here since they
     # all share the same resource server (Auth itself) and therefore an authorizer for
     # any of them grants us access to the same resource server.
-    authorizer = _get_authorizer_for_scope(
+    authorizer = get_authorizer_for_scope(
         AUTH_SCOPES[0],
         token_store=token_store,
     )
