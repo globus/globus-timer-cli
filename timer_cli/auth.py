@@ -20,16 +20,8 @@ AUTH_SCOPES = [
     "profile",
 ]
 ALL_SCOPES = AUTH_SCOPES + [TIMER_SERVICE_SCOPE]
-TOKEN_DIRECTORY = f"{pathlib.Path.home()}/.config/globus"
-# DEFAULT_TOKEN_FILE = str(
-#    pathlib.Path(TOKEN_DIRECTORY).joinpath(pathlib.Path(".globus_timer_tokens.cfg"))
-# )
 
 DEFAULT_TOKEN_FILE = pathlib.Path.home() / pathlib.Path(".globus_timer_tokens.cfg")
-
-
-def _create_token_directory():
-    pathlib.Path(TOKEN_DIRECTORY).mkdir(parents=True, exist_ok=True)
 
 
 def _get_native_client(
@@ -42,7 +34,6 @@ def _get_native_client(
     # arguments (from `get_headers`)
     token_store = token_store or DEFAULT_TOKEN_FILE
     try:
-        _create_token_directory()
         return NativeClient(
             client_id=CLIENT_ID,
             app_name=CLIENT_NAME,
@@ -61,11 +52,11 @@ def _get_native_client(
 
 
 def get_authorizers_for_scope(
-    scopes: list,
+    scopes: List[str],
     token_store: Optional[str] = None,
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
-) -> Optional[GlobusAuthorizer]:
+) -> Dict[str, GlobusAuthorizer]:
     client = _get_native_client(
         scopes, token_store=token_store, client_id=client_id, client_name=client_name
     )
@@ -73,7 +64,7 @@ def get_authorizers_for_scope(
         dd_scopes = DynamicDependencyTokenStorage.split_dynamic_scopes(scopes)
         base_scopes = list(dd_scopes)
         try:
-            # This first attempt will load tokens with logging in. Note that
+            # This first attempt will load tokens without logging in. Note that
             # only base_scopes are passed to the client. FRL currently can't
             # handle dynamic scopes, so storage will automatically determine
             # the correct scopes to load based on the scopes passed in above.
