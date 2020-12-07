@@ -10,7 +10,7 @@ from globus_sdk import AuthClient, RefreshTokenAuthorizer
 from globus_sdk.exc import AuthAPIError
 
 CLIENT_ID = "bc77d044-1f42-46cc-9702-87f756cd08a6"
-CLIENT_NAME = "Globus Timer Service Command Line"
+CLIENT_NAME = "Globus Timer Command Line Interface"
 TIMER_SERVICE_SCOPE = "https://auth.globus.org/scopes/524230d7-ea86-4a52-8312-86065a9e0417/transfer_action"
 AUTH_SCOPES = [
     "openid",
