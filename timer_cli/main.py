@@ -466,8 +466,8 @@ def transfer(
     verbose: bool,
 ):
     """
-    Submit specifically a transfer job. The options for this command are tailored to
-    the transfer action.
+    Submit a task for periodic transfer or sync using Globus transfer. The options for
+    this command are tailored to the transfer action.
     """
     action_url = urllib.parse.urlparse(
         "https://actions.automate.globus.org/transfer/transfer/run"
