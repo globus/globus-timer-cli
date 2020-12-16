@@ -96,13 +96,17 @@ def get_authorizer_for_scope(
     token_store: Optional[str] = None,
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
+    no_login: bool = False,
 ) -> Optional[GlobusAuthorizer]:
     authorizers = get_authorizers_for_scope(
         [scope] + all_scopes,
         token_store=token_store,
         client_id=client_id,
         client_name=client_name,
+        no_login=no_login,
     )
+    if not authorizers:
+        return None
     base_scope = scope.split("[", 1)[0]
     authorizer = authorizers.get(base_scope)
     return authorizer
