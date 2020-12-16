@@ -372,6 +372,13 @@ def list(show_deleted: bool, verbose: bool):
 
 @job.command(cls=Command)
 @click.option(
+    "--all",
+    "-a",
+    "show_all",
+    is_flag=True,
+    help="Show status for all jobs",
+)
+@click.option(
     "--show-deleted",
     required=False,
     is_flag=True,
@@ -383,8 +390,8 @@ def list(show_deleted: bool, verbose: bool):
     is_flag=True,
     help="Show full JSON output",
 )
-@click.argument("job_id", type=uuid.UUID)
-def status(job_id: uuid.UUID, show_deleted: bool, verbose: bool):
+@click.argument("job_id", type=uuid.UUID, required=False)
+def status(job_id: Optional[uuid.UUID], show_deleted: bool, verbose: bool, show_all: bool):
     """
     Return the status of the job with the given ID.
 
@@ -395,7 +402,13 @@ def status(job_id: uuid.UUID, show_deleted: bool, verbose: bool):
 
     CHECK THE --verbose OUTPUT TO BE CERTAIN YOUR TRANSFERS ARE WORKING.
     """
-    show_job(job_status(job_id, show_deleted=show_deleted), verbose=verbose)
+    if not job_id and not show_all:
+        click.echo("Error: must provide either a job ID or the --all option\n", err=True)
+        show_usage(click.get_current_context().command)
+    if show_all:
+        show_job_list(job_list(), as_table=False)
+    else:
+        show_job(job_status(job_id, show_deleted=show_deleted), verbose=verbose)
 
 
 @job.command(cls=Command)
@@ -407,7 +420,7 @@ def status(job_id: uuid.UUID, show_deleted: bool, verbose: bool):
 )
 @click.argument("job_id", type=uuid.UUID)
 def delete(job_id: uuid.UUID, verbose: bool):
-    show_job(job_delete(job_id), verbose=verbose)
+    show_job(job_delete(job_id), verbose=verbose, was_deleted=True)
 
 
 @job.command(cls=Command)
@@ -587,7 +600,11 @@ def login():
 def whoami(format: str):
     user_info = get_current_user(no_login=True)
     if not user_info:
-        click.echo("Not logged in yet; use `globus-timer session login`", err=True)
+        click.echo(
+            "Not logged in yet; use `globus-timer session login` to initialize your"
+            " session",
+            err=True
+        )
         sys.exit(1)
     full_fields = ["name", "email", "preferred_username", "organization"]
     if format == "brief":

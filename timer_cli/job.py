@@ -128,11 +128,9 @@ def job_status(job_id: uuid.UUID, show_deleted: bool = False) -> requests.Respon
 
 def job_delete(job_id: uuid.UUID) -> requests.Response:
     headers = get_headers()
-    params = {"show_deleted": True}
     try:
         return requests.delete(
             f"{_TIMER_JOBS_URL}/{job_id}",
-            params=params,
             headers=headers,
             timeout=TIMEOUT,
         )
@@ -174,7 +172,7 @@ def _job_prop_name_map(
     return ret_map
 
 
-def show_job(response: requests.Response, verbose: bool):
+def show_job(response: requests.Response, verbose: bool, was_deleted: bool = False):
     if response.status_code >= 300:
         try:
             msg = response.json().get("error", dict()).get("detail")
@@ -196,30 +194,38 @@ def show_job(response: requests.Response, verbose: bool):
     try:
         job_json = response.json()
     except ValueError as e:
-        # TODO: bad exit, do errors
-        click.echo(
-            f"couldn't parse json from job response: {e}: service response: {response.text}",
-            err=True,
-        )
-        sys.exit(1)
+        # TODO: this could return status---maybe add module with error hierarchy
+        click.echo(f"couldn't parse json from job response: {e}", err=True)
+        return
+    show_job_json(job_json, was_deleted=was_deleted)
 
-    job_friendly_to_field_map = [
-        ("Name", "name"),
-        ("Job ID", "job_id"),
-        ("Status", "status"),
-        ("Start", "start"),
-        ("Interval", "interval"),
-        ("Next Run At", "next_run"),
-        ("Last Run Result", _get_job_result),
-    ]
+
+def show_job_json(job_json: dict, was_deleted: bool = False):
+    try:
+        job_friendly_to_field_map = [
+            ("Name", "name"),
+            ("Job ID", "job_id"),
+            ("Status", "status"),
+            ("Start", "start"),
+            ("Interval", "interval"),
+        ]
+        if not was_deleted:
+            job_friendly_to_field_map.append(("Next Run At", "next_run"))
+            job_friendly_to_field_map.append(("Last Run Result", _get_job_result))
+    except (IndexError, KeyError) as e:
+        click.echo(f"failed to read info for job: {str(e)}", err=True)
+        return
     job_info = _job_prop_name_map(job_json, job_friendly_to_field_map)
-
     key_width = max(len(k) for k, _ in job_info) + 2
     output = "\n".join([f"{k}: ".ljust(key_width) + str(v) for k, v in job_info])
     click.echo(output)
 
 
-def show_job_list(response: requests.Response, verbose: bool):
+def show_job_list(
+    response: requests.Response,
+    verbose: bool = False,
+    as_table: bool = True,
+) -> None:
     # TODO: absorb this chunk into shared function
     if verbose:
         return show_response(response)
@@ -232,6 +238,20 @@ def show_job_list(response: requests.Response, verbose: bool):
             err=True,
         )
         sys.exit(1)
+
+    if not as_table:
+        if "jobs" not in job_json:
+            click.echo(f"failed to read info for job list: {e}", err=True)
+            sys.exit(1)
+        first = True
+        for job in job_json["jobs"]:  # are we semantically satiated yet?
+            # print empty separating line for each job after the first
+            if not first:
+                click.echo("")
+            show_job_json(job)
+            first = False
+        return
+
     headers = ["Name", "Job ID", "Status", "Last Result"]
     try:
         rows = [
