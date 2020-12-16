@@ -10,7 +10,7 @@ maintainer (rudyard at globus dot org) with feedback or to resolve issues.
 
 The Globus Timer service can be used to schedule recurring transfer
 tasks. For example, let’s say we want to have a transfer automatically
-run every night to back up data. We submit a job to the Timer API
+run every night to back up data. We submit a job to the Timer Service
 starting tonight, and with an interval of 1 day at which it will be
 re-run. In that request we provide the Timer service the same input we
 would give to the [Globus Transfer Action Provider]();
@@ -40,9 +40,14 @@ through Globus Auth. Upon first use, the CLI will prompt you to
 authorize use via the Globus Auth system. Typically, this will occur
 by opening a web browser which will request that you login to your
 Globus identity and to consent to the service looking up your identity
-and interacting with the Globus Transfer service on your
-behalf. Authentication information is thereafter cached in the file
-`~/.config/globus/tokens.json` (so the authentication process is only
+and interacting with the Globus Transfer service on your behalf. Some
+Globus endpoints require additional authentication for use, when this
+is necessary, a second browser window may open asking for consent for
+using the Globus Transfer service and additionally for the specific
+endpoint(s) used with that job.
+
+Authentication information is thereafter cached in the file
+`~/.globus_timer_tokens.cfg` (so the authentication process is only
 needed on the first use); keep this file secret.
 
 After first use, you can determine what Globus Auth identity is being
@@ -64,7 +69,7 @@ different Globus Auth identity, use the command:
 globus-timer session logout
 ```
 
-This will simply delete the file `~/.config/globus/tokens.json`
+This will simply delete the file `~/.globus_timer_tokens.cfg`
 removing the identity information stored there so you will be required
 to authenticate again on next use of the tool. Note that should you
 wish to both logout, and revoke the Timer service's permission to run

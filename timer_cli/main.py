@@ -13,8 +13,9 @@ from distutils.util import strtobool
 from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import click
+from globus_sdk import TransferClient
 
-from timer_cli.auth import get_current_user
+from timer_cli.auth import get_authorizer_for_scope, get_current_user
 from timer_cli.auth import logout as auth_logout
 from timer_cli.auth import revoke_login
 from timer_cli.job import (
@@ -35,6 +36,9 @@ DATETIME_FORMATS = [
     "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%d %H:%M:%S%z",
 ]
+
+
+TRANSFER_ALL_SCOPE = "urn:globus:auth:scope:transfer.api.globus.org:all"
 
 
 def _un_parse_opt(opt: str):
@@ -69,6 +73,38 @@ def _read_csv(
         reader = DictReader(decomment(f), fieldnames=fieldnames)
         for row_dict in reader:
             yield {k: transform_val(k, v) for k, v in row_dict.items()}
+
+
+def _get_transfer_client():
+    transfer_authorizer = get_authorizer_for_scope(TRANSFER_ALL_SCOPE, all_scopes=[])
+    return TransferClient(transfer_authorizer)
+
+
+def _get_required_data_access_scopes(collection_ids: Iterable[str]) -> List[str]:
+    tc = _get_transfer_client()
+    data_access_scopes: List[str] = []
+    data_access_scope_template = "https://auth.globus.org/scopes/{}/data_access"
+    for collection_id in collection_ids:
+        collection_id_info = tc.get_endpoint(collection_id)
+        if collection_id_info["DATA_TYPE"] == "endpoint":
+            gcs_version = collection_id_info.get("gcs_version")
+            if gcs_version is None:
+                continue
+            gcs_version_parts = [int(x) for x in gcs_version.split(".")]
+            requires_data_access = all(
+                [
+                    gcs_version_parts[0] > 5
+                    or gcs_version_parts[0] == 5
+                    and gcs_version_parts[1] >= 4,
+                    (collection_id_info.get("high_assurance", True) is False),
+                    collection_id_info.get("host_endpoint", True) is None,
+                ]
+            )
+            if requires_data_access:
+                data_access_scopes.append(
+                    data_access_scope_template.format(collection_id)
+                )
+    return data_access_scopes
 
 
 def show_usage(cmd: click.Command):
@@ -225,7 +261,12 @@ def job():
     "--start",
     required=False,
     type=click.DateTime(formats=DATETIME_FORMATS),
-    help=("Start time for the job (defaults to current time)"),
+    help=(
+        "Start time for the job. Defaults to current time. (The example above shows the"
+        " allowed formats using Python's datetime formatters; see:"
+        " https://docs.python.org/3/library/datetime.html"
+        "#strftime-and-strptime-format-codes"
+    ),
 )
 @click.option(
     "--interval",
@@ -479,13 +520,22 @@ def transfer(
     verbose: bool,
 ):
     """
-    Submit specifically a transfer job. The options for this command are tailored to
-    the transfer action.
+    Submit a task for periodic transfer or sync using Globus transfer. The options for
+    this command are tailored to the transfer action.
     """
     action_url = urllib.parse.urlparse(
         "https://actions.automate.globus.org/transfer/transfer/run"
     )
-    scope = "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
+    data_access_scopes = _get_required_data_access_scopes(
+        [source_endpoint, dest_endpoint]
+    )
+    transfer_ap_scope = (
+        "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
+    )
+    if len(data_access_scopes) > 0:
+        transfer_ap_scope = (
+            f"{transfer_ap_scope}[{TRANSFER_ALL_SCOPE}[{' '.join(data_access_scopes)}]]"
+        )
     # Just declare it for typing purposes
     transfer_items: List[Dict[str, Union[str, bool]]] = []
     if item:
@@ -517,7 +567,7 @@ def transfer(
         name,
         start,
         interval,
-        scope,
+        transfer_ap_scope,
         action_url,
         action_body=None,
         action_file=None,

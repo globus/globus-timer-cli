@@ -4,12 +4,12 @@ import os
 import sys
 import urllib
 import uuid
-from typing import Optional
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import click
 import requests
 
-from timer_cli.auth import get_access_token_for_scope, TIMER_SERVICE_SCOPE
+from timer_cli.auth import TIMER_SERVICE_SCOPE, get_access_token_for_scope
 from timer_cli.output import make_table, show_response
 
 # how long to wait before giving up on requests to the API
@@ -28,12 +28,16 @@ def handle_requests_exception(e: Exception):
     sys.exit(1)
 
 
-def get_headers(token_store: Optional[str] = None) -> dict:
+def get_headers(
+    token_store: Optional[str] = None, token_scope=TIMER_SERVICE_SCOPE
+) -> Dict[str, str]:
     """
     Assemble any needed headers that should go in all requests to the timer API, such
     as the access token.
     """
-    access_token = get_access_token_for_scope(token_store=token_store)
+    access_token = get_access_token_for_scope(
+        token_store=token_store, token_scope=token_scope
+    )
     return {"Authorization": f"Bearer {access_token}"}
 
 
@@ -64,15 +68,21 @@ def job_submit(
     if start_with_tz.tzinfo is None:
         start_with_tz = start.astimezone()
     callback_url: str = action_url.geturl()
+    # If there is a dependent scope on the job's scope, we trim that off as server-side
+    # doesn't really understand that.
+    send_job_scope = scope.split("[", 1)[0]
     req_json = {
         "name": name,
         "start": start_with_tz.isoformat(),
         "interval": interval,
-        "scope": scope,
+        "scope": send_job_scope,
         "callback_url": callback_url,
         "callback_body": callback_body,
     }
-    headers = get_headers()
+    # Ww'll make the job scope dependent on the timer service's job creation scope so we
+    # can be sure that we can do a dependent token grant on the token that is sent
+    token_scope = f"{TIMER_SERVICE_SCOPE}[{scope}]"
+    headers = get_headers(token_scope=token_scope)
     try:
         return requests.post(
             _TIMER_JOBS_URL,
@@ -128,8 +138,10 @@ def job_delete(job_id: uuid.UUID) -> requests.Response:
         handle_requests_exception(e)
 
 
-def _get_job_result(job_json: dict) -> str:
-    last_result = "SUCCESS"
+def _get_job_result(job_json: dict) -> Optional[str]:
+    if "results" not in job_json:
+        return None
+    last_result = "RUN COMPLETE"
     job_results = job_json["results"]
     if len(job_results) == 0:
         last_result = "NOT RUN"
@@ -139,6 +151,25 @@ def _get_job_result(job_json: dict) -> str:
         if last_result_status >= 400:
             last_result = "FAILURE"
     return last_result
+
+
+def _job_prop_name_map(
+    job_json: Dict, prop_map: List[Tuple[str, Union[str, Callable]]]
+) -> List[Tuple[str, str]]:
+    """Map the job json (or any dict) from some unfriendly names to more friendly names on
+    the keys. The input is the dict, and a list of friendly names, followed by unfriendly
+    names or a callable which will generate the desired value for the friendly name.
+
+    The return is a list of friendly name, value tuples
+    """
+    ret_map: list[tuple[str, str]] = []
+    for prop_map_entry in prop_map:
+        prop_val = job_json.get(prop_map_entry[1])
+        if prop_val is not None:
+            if callable(prop_val):
+                prop_val = prop_val(job_json)
+            ret_map.append((prop_map_entry[0], prop_val))
+    return ret_map
 
 
 def show_job(response: requests.Response, verbose: bool, was_deleted: bool = False):
@@ -171,19 +202,20 @@ def show_job(response: requests.Response, verbose: bool, was_deleted: bool = Fal
 
 def show_job_json(job_json: dict, was_deleted: bool = False):
     try:
-        job_info = [
-            ("Name", job_json["name"]),
-            ("Job ID", job_json["job_id"]),
-            ("Status", job_json["status"]),
-            ("Start", job_json["start"]),
-            ("Interval", job_json["interval"]),
+        job_friendly_to_field_map = [
+            ("Name", "name"),
+            ("Job ID", "job_id"),
+            ("Status", "status"),
+            ("Start", "start"),
+            ("Interval", "interval"),
         ]
         if not was_deleted:
-            job_info.append(("Next Run At", job_json["next_run"]))
-            job_info.append(("Last Run Result", _get_job_result(job_json)))
+            job_friendly_to_field_map.append(("Next Run At", "next_run"))
+            job_friendly_to_field_map.append(("Last Run Result", _get_job_result))
     except (IndexError, KeyError) as e:
         click.echo(f"failed to read info for job: {str(e)}", err=True)
         return
+    job_info = _job_prop_name_map(job_json, job_friendly_to_field_map)
     key_width = max(len(k) for k, _ in job_info) + 2
     output = "\n".join([f"{k}: ".ljust(key_width) + str(v) for k, v in job_info])
     click.echo(output)
@@ -201,7 +233,10 @@ def show_job_list(
         job_json = response.json()
     except ValueError as e:
         # TODO: bad exit, do errors
-        click.echo(f"couldn't parse json from job response: {e}", err=True)
+        click.echo(
+            f"couldn't parse json from job response: {e}: service response: {response.text}",
+            err=True,
+        )
         sys.exit(1)
 
     if not as_table:
