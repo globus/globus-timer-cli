@@ -225,7 +225,12 @@ def job():
     "--start",
     required=False,
     type=click.DateTime(formats=DATETIME_FORMATS),
-    help=("Start time for the job (defaults to current time)"),
+    help=(
+        "Start time for the job. Defaults to current time. (The example above shows the"
+        " allowed formats using Python's datetime formatters; see:"
+        " https://docs.python.org/3/library/datetime.html"
+        "#strftime-and-strptime-format-codes"
+    ),
 )
 @click.option(
     "--interval",
