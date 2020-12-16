@@ -129,7 +129,7 @@ def job_delete(job_id: uuid.UUID) -> requests.Response:
 
 
 def _get_job_result(job_json: dict) -> str:
-    last_result = "SUCCESS"
+    last_result = "RUN COMPLETE"
     job_results = job_json["results"]
     if len(job_results) == 0:
         last_result = "NOT RUN"
