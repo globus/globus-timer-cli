@@ -143,7 +143,7 @@ def _get_job_result(job_json: dict) -> str:
     return last_result
 
 
-def show_job(response: requests.Response, verbose: bool):
+def show_job(response: requests.Response, verbose: bool, was_deleted: bool = False):
     if response.status_code >= 300:
         try:
             msg = response.json().get("error", dict()).get("detail")
@@ -165,28 +165,27 @@ def show_job(response: requests.Response, verbose: bool):
     try:
         job_json = response.json()
     except ValueError as e:
-        # TODO: bad exit, do errors
+        # TODO: this could return status---maybe add module with error hierarchy
         click.echo(f"couldn't parse json from job response: {e}", err=True)
-        sys.exit(1)
-    show_job_json(job_json)
+        return
+    show_job_json(job_json, was_deleted=was_deleted)
 
 
-def show_job_json(job_json: dict):
+def show_job_json(job_json: dict, was_deleted: bool = False):
     try:
-        last_result = _get_job_result(job_json)
         job_info = [
             ("Name", job_json["name"]),
             ("Job ID", job_json["job_id"]),
             ("Status", job_json["status"]),
             ("Start", job_json["start"]),
             ("Interval", job_json["interval"]),
-            ("Next Run At", job_json["next_run"]),
-            ("Last Run Result", last_result),
         ]
+        if not was_deleted:
+            job_info.append(("Next Run At", job_json["next_run"]))
+            job_info.append(("Last Run Result", _get_job_result(job_json)))
     except (IndexError, KeyError) as e:
-        # TODO: bad exit, do errors
-        click.echo(f"failed to read info for job: {e}", err=True)
-        sys.exit(1)
+        click.echo(f"failed to read info for job: {str(e)}", err=True)
+        return
     key_width = max(len(k) for k, _ in job_info) + 2
     output = "\n".join([f"{k}: ".ljust(key_width) + str(v) for k, v in job_info])
     click.echo(output)
@@ -209,7 +208,7 @@ def show_job_list(
 
     if not as_table:
         if "jobs" not in job_json:
-            click.echo(f"failed to read info for job: {e}", err=True)
+            click.echo(f"failed to read info for job list: {e}", err=True)
             sys.exit(1)
         first = True
         for job in job_json["jobs"]:  # are we semantically satiated yet?

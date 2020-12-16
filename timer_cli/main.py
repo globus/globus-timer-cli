@@ -379,7 +379,7 @@ def status(job_id: Optional[uuid.UUID], show_deleted: bool, verbose: bool, show_
 )
 @click.argument("job_id", type=uuid.UUID)
 def delete(job_id: uuid.UUID, verbose: bool):
-    show_job(job_delete(job_id), verbose=verbose)
+    show_job(job_delete(job_id), verbose=verbose, was_deleted=True)
 
 
 @job.command(cls=Command)
@@ -550,7 +550,11 @@ def login():
 def whoami(format: str):
     user_info = get_current_user(no_login=True)
     if not user_info:
-        click.echo("Not logged in yet; use `globus-timer session login`", err=True)
+        click.echo(
+            "Not logged in yet; use `globus-timer session login` to initialize your"
+            " session",
+            err=True
+        )
         sys.exit(1)
     full_fields = ["name", "email", "preferred_username", "organization"]
     if format == "brief":
