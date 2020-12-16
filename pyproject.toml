@@ -29,13 +29,16 @@ globus-timer = "timer_cli.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.6"
-fair-research-login = "^0.1.5"
+fair-research-login = "^0.2"
 requests = "^2.24.0"
 click = "^7.1.2"
+# fair-research-login = {path = "../fair-research/native-login"}
 
 [tool.poetry.dev-dependencies]
 importmagic = "^0.1.7"
 epc = "^0.0.5"
+pyls-black = "^0.4.6"
+pyls-isort = "^0.2.0"
 
 [build-system]
 requires = ["poetry>=0.12"]
