@@ -45,7 +45,7 @@ def job_submit(
     name: str,
     start: Optional[datetime.datetime],
     interval: int,
-    scope: str,
+    scope: Optional[str],
     action_url: urllib.parse.ParseResult,
     action_body: Optional[str] = None,
     action_file: Optional[click.File] = None,
@@ -128,9 +128,11 @@ def job_status(job_id: uuid.UUID, show_deleted: bool = False) -> requests.Respon
 
 def job_delete(job_id: uuid.UUID) -> requests.Response:
     headers = get_headers()
+    params = {"show_deleted": True}
     try:
         return requests.delete(
             f"{_TIMER_JOBS_URL}/{job_id}",
+            params=params,
             headers=headers,
             timeout=TIMEOUT,
         )
@@ -174,9 +176,19 @@ def _job_prop_name_map(
 
 def show_job(response: requests.Response, verbose: bool):
     if response.status_code >= 300:
+        try:
+            msg = response.json().get("error", dict()).get("detail")
+        except ValueError:
+            msg = None
+        finally:
+            if msg:
+                msg = f": {msg}"
+            else:
+                msg = ""
         click.echo(
-            f"Unable to retrieve job, request status {response.status_code} "
-            f"body: {response.text}"
+            f"Unable to retrieve job{msg}\n"
+            f"    Response status:  {response.status_code}\n"
+            f"    Response body:    {response.text}"
         )
         return
     if verbose:

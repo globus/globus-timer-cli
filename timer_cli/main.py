@@ -585,15 +585,17 @@ def login():
     help="Select the detail level and format for output.",
 )
 def whoami(format: str):
-    user_info = get_current_user()
+    user_info = get_current_user(no_login=True)
+    if not user_info:
+        click.echo("Not logged in yet; use `globus-timer session login`", err=True)
+        sys.exit(1)
     full_fields = ["name", "email", "preferred_username", "organization"]
     if format == "brief":
         click.echo(f"{user_info['preferred_username']}")
-    else:
-        if format == "full":
-            click.echo(make_table(full_fields, [[user_info[k] for k in full_fields]]))
-        elif format == "json":
-            click.echo(json.dumps({k: user_info[k] for k in full_fields}, indent=2))
+    elif format == "full":
+        click.echo(make_table(full_fields, [[user_info[k] for k in full_fields]]))
+    elif format == "json":
+        click.echo(json.dumps({k: user_info[k] for k in full_fields}, indent=2))
 
 
 @session.command(help="Remove the saved Globus Auth identity identity information.")

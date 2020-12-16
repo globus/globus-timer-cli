@@ -56,10 +56,16 @@ def get_authorizers_for_scope(
     token_store: Optional[str] = None,
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
-) -> Dict[str, GlobusAuthorizer]:
+    no_login: bool = False,
+) -> Optional[Dict[str, GlobusAuthorizer]]:
     client = _get_native_client(
         scopes, token_store=token_store, client_id=client_id, client_name=client_name
     )
+    if no_login:
+        try:
+            client.load_tokens(requested_scopes=ALL_SCOPES)
+        except LoadError:
+            return None
     try:
         dd_scopes = DynamicDependencyTokenStorage.split_dynamic_scopes(scopes)
         base_scopes = list(dd_scopes)
@@ -90,13 +96,17 @@ def get_authorizer_for_scope(
     token_store: Optional[str] = None,
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
+    no_login: bool = False,
 ) -> Optional[GlobusAuthorizer]:
     authorizers = get_authorizers_for_scope(
         [scope] + all_scopes,
         token_store=token_store,
         client_id=client_id,
         client_name=client_name,
+        no_login=no_login,
     )
+    if not authorizers:
+        return None
     base_scope = scope.split("[", 1)[0]
     authorizer = authorizers.get(base_scope)
     return authorizer
@@ -122,15 +132,17 @@ def logout(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
 
 
 def revoke_login(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
-    """This calls the fair research login function logout on the client. This has two side effects:
+    """
+    This calls the fair research login function logout on the client. This has two side
+    effects:
 
     1. It revokes the tokens that it has been issued. This means that any place those
-    tokens (including refresh tokens) are in use, they will no longer be valid
-    tokens. This can be a problem for services like timer that refresh and re-use tokens
-    over a long period of time.
+    tokens (including refresh tokens) are in use, they will no longer be valid tokens.
+    This can be a problem for services like timer that refresh and re-use tokens over a
+    long period of time.
 
-    2. It removes the token store file. This is good as it essentially causes the user to
-    re-login on next use.
+    2. It removes the token store file. This is good as it essentially causes the user
+    to re-login on next use.
     """
     client = _get_native_client(token_store=token_store)
     if client:
@@ -138,14 +150,23 @@ def revoke_login(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
     return client is not None
 
 
-def get_current_user(token_store: Optional[str] = None) -> Dict[str, Any]:
+def get_current_user(
+    token_store: Optional[str] = None,
+    no_login: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """
+    When `no_login` is set, returns `None` if not logged in.
+    """
     # We don't really care which scope from the AUTH_SCOPE list we use here since they
     # all share the same resource server (Auth itself) and therefore an authorizer for
     # any of them grants us access to the same resource server.
     authorizer = get_authorizer_for_scope(
         AUTH_SCOPES[0],
         token_store=token_store,
+        no_login=no_login,
     )
+    if not authorizer:
+        return None
     auth_client = AuthClient(authorizer=authorizer)
     user_info = auth_client.oauth2_userinfo()
     return user_info.data

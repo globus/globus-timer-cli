@@ -175,7 +175,7 @@ If this file was named `transfer_items.csv` it would be specified with the param
 
 Note that this is a CSV file. The individual parts of the item are separated with commas, and lines starting with a `#` are considered to be comments and are not processed as items for the transfer job.
 
-## Monitoring and Controlling Submitted jobs 
+## Monitoring and Controlling Submitted jobs
 
 After submitting the transfer job, the CLI should return some results containing
 a `job_id`, which identifies this job in the Timer service. To check the
