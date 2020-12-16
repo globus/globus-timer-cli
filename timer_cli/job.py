@@ -168,6 +168,10 @@ def show_job(response: requests.Response, verbose: bool):
         # TODO: bad exit, do errors
         click.echo(f"couldn't parse json from job response: {e}", err=True)
         sys.exit(1)
+    show_job_json(job_json)
+
+
+def show_job_json(job_json: dict):
     try:
         last_result = _get_job_result(job_json)
         job_info = [
@@ -188,7 +192,11 @@ def show_job(response: requests.Response, verbose: bool):
     click.echo(output)
 
 
-def show_job_list(response: requests.Response, verbose: bool):
+def show_job_list(
+    response: requests.Response,
+    verbose: bool = False,
+    as_table: bool = True,
+) -> None:
     # TODO: absorb this chunk into shared function
     if verbose:
         return show_response(response)
@@ -198,6 +206,20 @@ def show_job_list(response: requests.Response, verbose: bool):
         # TODO: bad exit, do errors
         click.echo(f"couldn't parse json from job response: {e}", err=True)
         sys.exit(1)
+
+    if not as_table:
+        if "jobs" not in job_json:
+            click.echo(f"failed to read info for job: {e}", err=True)
+            sys.exit(1)
+        first = True
+        for job in job_json["jobs"]:  # are we semantically satiated yet?
+            # print empty separating line for each job after the first
+            if not first:
+                click.echo("")
+            show_job_json(job)
+            first = False
+        return
+
     headers = ["Name", "Job ID", "Status", "Last Result"]
     try:
         rows = [
