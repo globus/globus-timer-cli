@@ -118,11 +118,9 @@ def job_status(job_id: uuid.UUID, show_deleted: bool = False) -> requests.Respon
 
 def job_delete(job_id: uuid.UUID) -> requests.Response:
     headers = get_headers()
-    params = {"show_deleted": True}
     try:
         return requests.delete(
             f"{_TIMER_JOBS_URL}/{job_id}",
-            params=params,
             headers=headers,
             timeout=TIMEOUT,
         )
