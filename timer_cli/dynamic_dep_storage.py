@@ -208,8 +208,11 @@ class DynamicDependencyTokenStorage(ConfigParserTokenStorage):
         self.section = self.DEFAULT_SECTION
         super().clear_tokens()
         cfg = self.load()
-        for section, _ in cfg.items(self.DDS_SECTION):
-            cfg.remove_section(section)
+        try:
+            for section, _ in cfg.items(self.DDS_SECTION):
+                cfg.remove_section(section)
+        except NoSectionError:
+            pass
         cfg.remove_section(self.DDS_SECTION)
         cfg.add_section(self.DDS_SECTION)
         self.save(cfg)

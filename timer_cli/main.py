@@ -40,6 +40,9 @@ DATETIME_FORMATS = [
 
 TRANSFER_ALL_SCOPE = "urn:globus:auth:scope:transfer.api.globus.org:all"
 
+# TODO: make configurable/environment/maybe even check terminal width?
+MAX_CONTENT_WIDTH = 100
+
 
 def _un_parse_opt(opt: str):
     return "--" + opt.replace("_", "-")
@@ -83,7 +86,6 @@ def _get_transfer_client():
 def _get_required_data_access_scopes(collection_ids: Iterable[str]) -> List[str]:
     tc = _get_transfer_client()
     data_access_scopes: List[str] = []
-    data_access_scope_template = "https://auth.globus.org/scopes/{}/data_access"
     for collection_id in collection_ids:
         collection_id_info = tc.get_endpoint(collection_id)
         if collection_id_info["DATA_TYPE"] == "endpoint":
@@ -102,7 +104,7 @@ def _get_required_data_access_scopes(collection_ids: Iterable[str]) -> List[str]
             )
             if requires_data_access:
                 data_access_scopes.append(
-                    data_access_scope_template.format(collection_id)
+                    f"https://auth.globus.org/scopes/{collection_id}/data_access"
                 )
     return data_access_scopes
 
@@ -115,7 +117,7 @@ def show_usage(cmd: click.Command):
     the click context.
     """
     ctx = click.get_current_context()
-    ctx.max_content_width = 100
+    ctx.max_content_width = MAX_CONTENT_WIDTH
     formatter = ctx.make_formatter()
     cmd.format_help_text(ctx, formatter)
     cmd.format_options(ctx, formatter)
