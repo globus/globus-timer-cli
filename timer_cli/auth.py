@@ -144,7 +144,7 @@ def revoke_login(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
     2. It removes the token store file. This is good as it essentially causes the user
     to re-login on next use.
     """
-    client = _get_native_client(token_store=token_store)
+    client = _get_native_client([], token_store=token_store)
     if client:
         client.logout()
     return client is not None
