@@ -175,8 +175,8 @@ def get_current_user(
         click.echo(
             (
                 "Couldn't get user information from Auth service\n"
-                "(If you reset your consents in the Auth service, do `session logout`"
-                " and try again)\n"
+                "(If you rescinded your consents in the Auth service, do `session"
+                " logout` and try again)\n"
                 f"    Error details: {str(e)}"
             ),
             err=True,
