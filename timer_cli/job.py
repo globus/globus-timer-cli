@@ -146,7 +146,7 @@ def _get_job_result(job_json: dict) -> Optional[str]:
     if len(job_results) == 0:
         last_result = "NOT RUN"
     else:
-        last_result_status = job_results[0]["status"]
+        last_result_status = job_results[0].get("status") or 500
         # this could be better
         if last_result_status >= 400:
             last_result = "FAILURE"

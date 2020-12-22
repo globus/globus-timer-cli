@@ -1,5 +1,6 @@
 import os
 import pathlib
+import sys
 from typing import Any, Dict, List, Optional
 
 import click
@@ -168,5 +169,17 @@ def get_current_user(
     if not authorizer:
         return None
     auth_client = AuthClient(authorizer=authorizer)
-    user_info = auth_client.oauth2_userinfo()
+    try:
+        user_info = auth_client.oauth2_userinfo()
+    except AuthAPIError as e:
+        click.echo(
+            (
+                "Couldn't get user information from Auth service\n"
+                "(If you rescinded your consents in the Auth service, do `session"
+                " logout` and try again)\n"
+                f"    Error details: {str(e)}"
+            ),
+            err=True,
+        )
+        sys.exit(1)
     return user_info.data
