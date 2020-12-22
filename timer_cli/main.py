@@ -420,9 +420,14 @@ def status(job_id: Optional[uuid.UUID], show_deleted: bool, verbose: bool, show_
     is_flag=True,
     help="Show full JSON output",
 )
-@click.argument("job_id", type=uuid.UUID)
-def delete(job_id: uuid.UUID, verbose: bool):
-    show_job(job_delete(job_id), verbose=verbose, was_deleted=True)
+@click.argument("job_ids", type=uuid.UUID, nargs=-1)
+def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
+    start = True
+    for job_id in job_ids:
+        if not start:
+            click.echo("")
+        show_job(job_delete(job_id), verbose=verbose, was_deleted=True)
+        start = False
 
 
 @job.command(cls=Command)
