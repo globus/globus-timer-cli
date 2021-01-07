@@ -35,7 +35,7 @@ def error_if_not_activated(endpoints: List[str]):
     not_activated = endpoints_not_activated(endpoints)
     if not_activated:
         click.echo(
-            f"Requested endpoint is not activated: {', '.join(not_activated)}\n"
+            f"Error: requested endpoint is not activated: {', '.join(not_activated)}\n"
             "Open in the web app to activate:\n",
             err=True,
         )
