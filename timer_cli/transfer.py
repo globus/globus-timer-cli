@@ -9,13 +9,14 @@ from timer_cli.auth import get_authorizer_for_scope
 TRANSFER_ALL_SCOPE = "urn:globus:auth:scope:transfer.api.globus.org:all"
 
 
-def endpoints_not_activated(endpoints: List[str]) -> List[str]:
+def endpoints_not_activated(
+    transfer_client: TransferClient, endpoints: List[str]
+) -> List[str]:
     """
     Filter list of endpoint UUIDs, returning unactivated ones.
 
     Exit 1 if transfer responds with an error trying to look up endpoints.
     """
-    transfer_client = get_transfer_client()
     result = []
     for endpoint in endpoints:
         try:
@@ -31,12 +32,20 @@ def endpoints_not_activated(endpoints: List[str]) -> List[str]:
     return result
 
 
-def error_if_not_activated(endpoints: List[str]):
-    not_activated = endpoints_not_activated(endpoints)
-    if not_activated:
+def error_if_not_activated(endpoints: List[str], reactivate_if_expires_in=86400):
+    transfer_client = get_transfer_client()
+    not_activated = endpoints_not_activated(transfer_client, endpoints)
+    still_not_activated = []
+    for endpoint in not_activated:
+        response = transfer_client.endpoint_autoactivate(
+            endpoint, if_expires_in=reactivate_if_expires_in
+        )
+        if response.get("code") == "AutoActivationFailed":
+            still_not_activated.append(endpoint)
+    if still_not_activated:
         click.echo(
             f"Error: requested endpoint is not activated: {', '.join(not_activated)}\n"
-            "Open in the web app to activate:\n",
+            "Open in the web app to activate:",
             err=True,
         )
         for endpoint in not_activated:
