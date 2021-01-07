@@ -2,9 +2,9 @@ import datetime
 import json
 import os
 import sys
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 import urllib
 import uuid
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import click
 import requests

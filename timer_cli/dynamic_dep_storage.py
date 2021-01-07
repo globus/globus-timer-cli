@@ -7,10 +7,10 @@ This module handles saving and loading Dynamic tokens inside Fair
 Research Login (0.1.5 or later).
 """
 
+from configparser import NoSectionError
 import logging.config
 import os
 import re
-from configparser import NoSectionError
 
 from fair_research_login import ConfigParserTokenStorage, NativeClient
 from fair_research_login.exc import LoadError, LoginException
