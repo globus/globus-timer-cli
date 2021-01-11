@@ -3,19 +3,19 @@ TODO:
     - look into https://github.com/click-contrib/click-help-colors
 """
 
+from csv import DictReader
 import datetime
+from distutils.util import strtobool
 import json
 import sys
+from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 import urllib.parse
 import uuid
-from csv import DictReader
-from distutils.util import strtobool
-from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import click
 from globus_sdk import TransferClient
 
-from timer_cli.auth import get_authorizer_for_scope, get_current_user
+from timer_cli.auth import get_current_user
 from timer_cli.auth import logout as auth_logout
 from timer_cli.auth import revoke_login
 from timer_cli.job import (
@@ -27,6 +27,11 @@ from timer_cli.job import (
     show_job_list,
 )
 from timer_cli.output import make_table
+from timer_cli.transfer import (
+    TRANSFER_ALL_SCOPE,
+    error_if_not_activated,
+    get_transfer_client,
+)
 
 # List of datetime formats accepted as input. (`%z` means timezone.)
 DATETIME_FORMATS = [
@@ -37,8 +42,6 @@ DATETIME_FORMATS = [
     "%Y-%m-%d %H:%M:%S%z",
 ]
 
-
-TRANSFER_ALL_SCOPE = "urn:globus:auth:scope:transfer.api.globus.org:all"
 
 # TODO: make configurable/environment/maybe even check terminal width?
 MAX_CONTENT_WIDTH = 100
@@ -78,13 +81,8 @@ def _read_csv(
             yield {k: transform_val(k, v) for k, v in row_dict.items()}
 
 
-def _get_transfer_client():
-    transfer_authorizer = get_authorizer_for_scope(TRANSFER_ALL_SCOPE, all_scopes=[])
-    return TransferClient(transfer_authorizer)
-
-
 def _get_required_data_access_scopes(collection_ids: Iterable[str]) -> List[str]:
-    tc = _get_transfer_client()
+    tc = get_transfer_client()
     data_access_scopes: List[str] = []
     for collection_id in collection_ids:
         collection_id_info = tc.get_endpoint(collection_id)
@@ -393,7 +391,9 @@ def list(show_deleted: bool, verbose: bool):
     help="Show full JSON output",
 )
 @click.argument("job_id", type=uuid.UUID, required=False)
-def status(job_id: Optional[uuid.UUID], show_deleted: bool, verbose: bool, show_all: bool):
+def status(
+    job_id: Optional[uuid.UUID], show_deleted: bool, verbose: bool, show_all: bool
+):
     """
     Return the status of the job with the given ID.
 
@@ -405,7 +405,9 @@ def status(job_id: Optional[uuid.UUID], show_deleted: bool, verbose: bool, show_
     CHECK THE --verbose OUTPUT TO BE CERTAIN YOUR TRANSFERS ARE WORKING.
     """
     if not job_id and not show_all:
-        click.echo("Error: must provide either a job ID or the --all option\n", err=True)
+        click.echo(
+            "Error: must provide either a job ID or the --all option\n", err=True
+        )
         show_usage(click.get_current_context().command)
     if show_all:
         show_job_list(job_list(), as_table=False)
@@ -533,9 +535,9 @@ def transfer(
     action_url = urllib.parse.urlparse(
         "https://actions.automate.globus.org/transfer/transfer/run"
     )
-    data_access_scopes = _get_required_data_access_scopes(
-        [source_endpoint, dest_endpoint]
-    )
+    endpoints = [source_endpoint, dest_endpoint]
+    error_if_not_activated(endpoints)
+    data_access_scopes = _get_required_data_access_scopes(endpoints)
     transfer_ap_scope = (
         "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
     )
@@ -610,7 +612,7 @@ def whoami(format: str):
         click.echo(
             "Not logged in yet; use `globus-timer session login` to initialize your"
             " session",
-            err=True
+            err=True,
         )
         sys.exit(1)
     full_fields = ["name", "email", "preferred_username", "organization"]
