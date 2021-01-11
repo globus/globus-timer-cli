@@ -1,10 +1,5 @@
 VIRTUAL_ENV ?= .venv
 LINT_PATHS=timer_cli/
-ISORT_OPTS=--recursive \
-	--multi-line 3 \
-	--trailing-comma \
-	--use-parentheses \
-	--force-sort-within-sections
 define TIMER_CLI_MAKE_HELP
 makefile targets:
     help            show this message
@@ -36,9 +31,9 @@ requirements: requirements.txt
 install: venv requirements
 
 lint: poetry.lock
-	- poetry run isort --check-only $(ISORT_OPTS) $(LINT_PATHS)
+	- poetry run isort --check-only --recursive $(LINT_PATHS)
 	- poetry run black --check $(LINT_PATHS)
 
 dolint: poetry.lock
-	poetry run isort $(ISORT_OPTS) $(LINT_PATHS)
+	poetry run isort --recursive $(LINT_PATHS)
 	poetry run black $(LINT_PATHS)
