@@ -7,6 +7,7 @@ from csv import DictReader
 import datetime
 from distutils.util import strtobool
 import json
+import re
 import sys
 from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 import urllib.parse
@@ -45,6 +46,14 @@ DATETIME_FORMATS = [
 
 # TODO: make configurable/environment/maybe even check terminal width?
 MAX_CONTENT_WIDTH = 100
+
+timedelta_regex = re.compile(r"((?P<hours>\d+)h)?\s*((?P<minutes>\d+)m)?\s*((?P<seconds>\d+)s?)?")
+
+
+def _parse_timedelta(s: str) -> datetime.timedelta:
+    groups = timedelta_regex.match(s).groupdict(0)
+    return datetime.timedelta(**{k: int(v) for k, v in groups.items()})
+
 
 
 def _un_parse_opt(opt: str):
@@ -115,7 +124,10 @@ def show_usage(cmd: click.Command):
     the click context.
     """
     ctx = click.get_current_context()
-    ctx.max_content_width = MAX_CONTENT_WIDTH
+    # TODO: disabling this next line for the time being because of inconsistent
+    # behavior between this function and calling --help directly, which would produce
+    # different output. still have to figure that out
+    #ctx.max_content_width = MAX_CONTENT_WIDTH
     formatter = ctx.make_formatter()
     cmd.format_help_text(ctx, formatter)
     cmd.format_options(ctx, formatter)
@@ -448,8 +460,12 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
 @click.option(
     "--interval",
     required=True,
-    type=int,
-    help="Interval in seconds at which the job should run",
+    type=str,
+    help=(
+        "Interval at which the job should run. Use 'h', 'm', 's' as suffixes to specify"
+        " hours/minutes/seconds in any combination. Examples: 1h 30m, 500s, 24h, etc."
+        " Must be in order: hours -> minutes -> seconds."
+    ),
 )
 @click.option(
     "--source-endpoint",
@@ -519,7 +535,7 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
 def transfer(
     name: str,
     start: Optional[datetime.datetime],
-    interval: int,
+    interval: str,
     source_endpoint: str,
     dest_endpoint: str,
     label: Optional[str],
@@ -572,10 +588,14 @@ def transfer(
     if sync_level:
         action_body["sync_level"] = sync_level
     callback_body = {"body": action_body}
+    interval_seconds = _parse_timedelta(interval).total_seconds()
+    if not interval_seconds:
+        raise click.UsageError(f"Couldn't parse interval: {interval}")
+    import pdb; pdb.set_trace()
     response = job_submit(
         name,
         start,
-        interval,
+        interval_seconds,
         transfer_ap_scope,
         action_url,
         action_body=None,

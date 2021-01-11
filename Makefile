@@ -37,3 +37,6 @@ lint: poetry.lock
 dolint: poetry.lock
 	poetry run isort --recursive $(LINT_PATHS)
 	poetry run black $(LINT_PATHS)
+
+test:
+	poetry run pytest tests
