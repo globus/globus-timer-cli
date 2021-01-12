@@ -57,6 +57,13 @@ timedelta_regex = re.compile(
 )
 
 
+INTERVAL_HELP = (
+    "Interval at which the job should run. Use 'w', 'd', 'h', 'm', and 's' as suffixes"
+    " to specify weeks, days, hours, minutes, and seconds. Examples: 1h 30m, 500s,"
+    " 24h, 1d 12h, 2w, etc. Must be in order: hours -> minutes -> seconds."
+)
+
+
 def _parse_timedelta(s: str) -> datetime.timedelta:
     groups = {k: int(v) for k, v in timedelta_regex.match(s).groupdict(0).items()}
     # timedelta accepts kwargs for units up through days, have to convert weeks
@@ -292,8 +299,8 @@ def job():
 @click.option(
     "--interval",
     required=True,
-    type=int,
-    help="Interval in seconds at which the job should run",
+    type=str,
+    help=INTERVAL_HELP,
 )
 @click.option(
     "--scope",
@@ -341,7 +348,7 @@ def job():
 def submit(
     name: str,
     start: Optional[datetime.datetime],
-    interval: int,
+    interval: str,
     scope: str,
     action_url: urllib.parse.ParseResult,
     action_body: Optional[str],
@@ -351,10 +358,15 @@ def submit(
     """
     Submit a job.
     """
+    interval_seconds = _parse_timedelta(interval).total_seconds()
+    if not interval_seconds:
+        raise click.UsageError(f"Couldn't parse interval: {interval}")
+    if interval_seconds < 60:
+        raise click.UsageError(f"Interval is too short, minimum is 1 minute")
     response = job_submit(
         name,
         start,
-        interval,
+        interval_seconds,
         scope,
         action_url,
         action_body,
@@ -470,11 +482,7 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
     "--interval",
     required=True,
     type=str,
-    help=(
-        "Interval at which the job should run. Use 'h', 'm', 's' as suffixes to specify"
-        " hours/minutes/seconds in any combination. Examples: 1h 30m, 500s, 24h, etc."
-        " Must be in order: hours -> minutes -> seconds."
-    ),
+    help=INTERVAL_HELP,
 )
 @click.option(
     "--source-endpoint",
