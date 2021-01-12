@@ -47,12 +47,21 @@ DATETIME_FORMATS = [
 # TODO: make configurable/environment/maybe even check terminal width?
 MAX_CONTENT_WIDTH = 100
 
-timedelta_regex = re.compile(r"((?P<hours>\d+)h)?\s*((?P<minutes>\d+)m)?\s*((?P<seconds>\d+)s?)?")
+
+timedelta_regex = re.compile(
+    r"\s*((?P<weeks>\d+)w)?"
+    r"\s*((?P<days>\d+)d)?"
+    r"\s*((?P<hours>\d+)h)?"
+    r"\s*((?P<minutes>\d+)m)?"
+    r"\s*((?P<seconds>\d+)s?)?"
+)
 
 
 def _parse_timedelta(s: str) -> datetime.timedelta:
-    groups = timedelta_regex.match(s).groupdict(0)
-    return datetime.timedelta(**{k: int(v) for k, v in groups.items()})
+    groups = {k: int(v) for k, v in timedelta_regex.match(s).groupdict(0).items()}
+    # timedelta accepts kwargs for units up through days, have to convert weeks
+    groups["days"] += groups.pop("weeks", 0) * 7
+    return datetime.timedelta(**groups)
 
 
 
@@ -591,7 +600,6 @@ def transfer(
     interval_seconds = _parse_timedelta(interval).total_seconds()
     if not interval_seconds:
         raise click.UsageError(f"Couldn't parse interval: {interval}")
-    import pdb; pdb.set_trace()
     response = job_submit(
         name,
         start,
