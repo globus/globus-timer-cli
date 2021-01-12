@@ -600,6 +600,8 @@ def transfer(
     interval_seconds = _parse_timedelta(interval).total_seconds()
     if not interval_seconds:
         raise click.UsageError(f"Couldn't parse interval: {interval}")
+    if interval_seconds < 60:
+        raise click.UsageError(f"Interval is too short, minimum is 1 minute")
     response = job_submit(
         name,
         start,
