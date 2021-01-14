@@ -156,19 +156,20 @@ def _get_job_result(job_json: dict) -> Optional[str]:
 def _job_prop_name_map(
     job_json: Dict, prop_map: List[Tuple[str, Union[str, Callable]]]
 ) -> List[Tuple[str, str]]:
-    """Map the job json (or any dict) from some unfriendly names to more friendly names on
-    the keys. The input is the dict, and a list of friendly names, followed by unfriendly
-    names or a callable which will generate the desired value for the friendly name.
+    """
+    Map the job json (or any dict) from some unfriendly names to more friendly names on
+    the keys. The input is the dict, and a list of friendly names, followed by
+    unfriendly names or a callable which will generate the desired value for the
+    friendly name.
 
     The return is a list of friendly name, value tuples
     """
-    ret_map: list[tuple[str, str]] = []
-    for prop_map_entry in prop_map:
-        prop_val = job_json.get(prop_map_entry[1])
-        if prop_val is not None:
-            if callable(prop_val):
-                prop_val = prop_val(job_json)
-            ret_map.append((prop_map_entry[0], prop_val))
+    ret_map: List[Tuple[str, str]] = []
+    for prop_name, prop_mapper in prop_map:
+        value = job_json.get(prop_mapper)
+        if prop_mapper not in job_json and callable(prop_mapper):
+            value = prop_mapper(job_json)
+        ret_map.append((prop_name, value))
     return ret_map
 
 
@@ -207,7 +208,7 @@ def show_job_json(job_json: dict, was_deleted: bool = False):
             ("Job ID", "job_id"),
             ("Status", "status"),
             ("Start", "start"),
-            ("Interval", "interval"),
+            ("Interval", lambda d: str(datetime.timedelta(seconds=d["interval"]))),
         ]
         if not was_deleted:
             job_friendly_to_field_map.append(("Next Run At", "next_run"))
