@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "globus-timer-cli"
-version = "0.1.15"
+version = "0.1.16"
 description = "CLI for interacting with the timer API"
 authors = ["Rudyard Richter <rudyard@globus.org>"]
 keywords = [
