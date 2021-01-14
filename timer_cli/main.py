@@ -59,8 +59,9 @@ timedelta_regex = re.compile(
 
 INTERVAL_HELP = (
     "Interval at which the job should run. Use 'w', 'd', 'h', 'm', and 's' as suffixes"
-    " to specify weeks, days, hours, minutes, and seconds. Examples: 1h 30m, 500s,"
-    " 24h, 1d 12h, 2w, etc. Must be in order: hours -> minutes -> seconds."
+    " to specify weeks, days, hours, minutes, and seconds. Examples: '1h 30m', '500s',"
+    " '24h', '1d 12h', '2w', etc. Must be in order: hours -> minutes -> seconds. You"
+    " should either use quotes ('1d 2h') or write without spaces (1d2h)."
 )
 
 
