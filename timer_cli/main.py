@@ -410,7 +410,7 @@ def status(
         )
         show_usage(click.get_current_context().command)
     if show_all:
-        show_job_list(job_list(), as_table=False)
+        show_job_list(job_list(), as_table=False, verbose=verbose)
     else:
         show_job(job_status(job_id, show_deleted=show_deleted), verbose=verbose)
 
