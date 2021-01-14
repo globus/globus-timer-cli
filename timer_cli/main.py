@@ -7,6 +7,7 @@ from csv import DictReader
 import datetime
 from distutils.util import strtobool
 import json
+import re
 import sys
 from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 import urllib.parse
@@ -45,6 +46,30 @@ DATETIME_FORMATS = [
 
 # TODO: make configurable/environment/maybe even check terminal width?
 MAX_CONTENT_WIDTH = 100
+
+
+timedelta_regex = re.compile(
+    r"\s*((?P<weeks>\d+)w)?"
+    r"\s*((?P<days>\d+)d)?"
+    r"\s*((?P<hours>\d+)h)?"
+    r"\s*((?P<minutes>\d+)m)?"
+    r"\s*((?P<seconds>\d+)s?)?"
+)
+
+
+INTERVAL_HELP = (
+    "Interval at which the job should run. Use 'w', 'd', 'h', 'm', and 's' as suffixes"
+    " to specify weeks, days, hours, minutes, and seconds. Examples: 1h 30m, 500s,"
+    " 24h, 1d 12h, 2w, etc. Must be in order: hours -> minutes -> seconds."
+)
+
+
+def _parse_timedelta(s: str) -> datetime.timedelta:
+    groups = {k: int(v) for k, v in timedelta_regex.match(s).groupdict(0).items()}
+    # timedelta accepts kwargs for units up through days, have to convert weeks
+    groups["days"] += groups.pop("weeks", 0) * 7
+    return datetime.timedelta(**groups)
+
 
 
 def _un_parse_opt(opt: str):
@@ -115,7 +140,10 @@ def show_usage(cmd: click.Command):
     the click context.
     """
     ctx = click.get_current_context()
-    ctx.max_content_width = MAX_CONTENT_WIDTH
+    # TODO: disabling this next line for the time being because of inconsistent
+    # behavior between this function and calling --help directly, which would produce
+    # different output. still have to figure that out
+    #ctx.max_content_width = MAX_CONTENT_WIDTH
     formatter = ctx.make_formatter()
     cmd.format_help_text(ctx, formatter)
     cmd.format_options(ctx, formatter)
@@ -271,8 +299,8 @@ def job():
 @click.option(
     "--interval",
     required=True,
-    type=int,
-    help="Interval in seconds at which the job should run",
+    type=str,
+    help=INTERVAL_HELP,
 )
 @click.option(
     "--scope",
@@ -320,7 +348,7 @@ def job():
 def submit(
     name: str,
     start: Optional[datetime.datetime],
-    interval: int,
+    interval: str,
     scope: str,
     action_url: urllib.parse.ParseResult,
     action_body: Optional[str],
@@ -330,10 +358,15 @@ def submit(
     """
     Submit a job.
     """
+    interval_seconds = _parse_timedelta(interval).total_seconds()
+    if not interval_seconds:
+        raise click.UsageError(f"Couldn't parse interval: {interval}")
+    if interval_seconds < 60:
+        raise click.UsageError(f"Interval is too short, minimum is 1 minute")
     response = job_submit(
         name,
         start,
-        interval,
+        interval_seconds,
         scope,
         action_url,
         action_body,
@@ -448,8 +481,8 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
 @click.option(
     "--interval",
     required=True,
-    type=int,
-    help="Interval in seconds at which the job should run",
+    type=str,
+    help=INTERVAL_HELP,
 )
 @click.option(
     "--source-endpoint",
@@ -519,7 +552,7 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
 def transfer(
     name: str,
     start: Optional[datetime.datetime],
-    interval: int,
+    interval: str,
     source_endpoint: str,
     dest_endpoint: str,
     label: Optional[str],
@@ -572,10 +605,15 @@ def transfer(
     if sync_level:
         action_body["sync_level"] = sync_level
     callback_body = {"body": action_body}
+    interval_seconds = _parse_timedelta(interval).total_seconds()
+    if not interval_seconds:
+        raise click.UsageError(f"Couldn't parse interval: {interval}")
+    if interval_seconds < 60:
+        raise click.UsageError(f"Interval is too short, minimum is 1 minute")
     response = job_submit(
         name,
         start,
-        interval,
+        interval_seconds,
         transfer_ap_scope,
         action_url,
         action_body=None,
