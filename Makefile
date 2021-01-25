@@ -1,5 +1,5 @@
 VIRTUAL_ENV ?= .venv
-LINT_PATHS=timer_cli/
+LINT_PATHS=timer_cli/ tests/
 define TIMER_CLI_MAKE_HELP
 makefile targets:
     help            show this message

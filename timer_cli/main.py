@@ -72,7 +72,6 @@ def _parse_timedelta(s: str) -> datetime.timedelta:
     return datetime.timedelta(**groups)
 
 
-
 def _un_parse_opt(opt: str):
     return "--" + opt.replace("_", "-")
 
@@ -144,14 +143,13 @@ def show_usage(cmd: click.Command):
     # TODO: disabling this next line for the time being because of inconsistent
     # behavior between this function and calling --help directly, which would produce
     # different output. still have to figure that out
-    #ctx.max_content_width = MAX_CONTENT_WIDTH
+    # ctx.max_content_width = MAX_CONTENT_WIDTH
     formatter = ctx.make_formatter()
     cmd.format_help_text(ctx, formatter)
     cmd.format_options(ctx, formatter)
     cmd.format_epilog(ctx, formatter)
     click.echo(formatter.getvalue().rstrip("\n"))
-    ctx.exit()
-    sys.exit(2)
+    ctx.exit(2)
 
 
 class Command(click.Command):
@@ -521,6 +519,30 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
     ),
 )
 @click.option(
+    "--encrypt-data",
+    is_flag=True,
+    default=False,
+    help="Whether Transfer should encrypt data sent through the network using TLS",
+)
+@click.option(
+    "--verify-checksum",
+    is_flag=True,
+    default=False,
+    help=(
+        "Whether Transfer should verify file checksums and retry if the source and"
+        " destination don't match"
+    ),
+)
+@click.option(
+    "--preserve-timestamp",
+    is_flag=True,
+    default=False,
+    help=(
+        "Whether Transfer should set file timestamps on the destination to match the"
+        " origin"
+    ),
+)
+@click.option(
     "--item",
     "-i",
     required=False,
@@ -558,6 +580,9 @@ def transfer(
     dest_endpoint: str,
     label: Optional[str],
     sync_level: Optional[int],
+    encrypt_data: bool,
+    verify_checksum: bool,
+    preserve_timestamp: bool,
     item: Optional[List[Tuple[str, str, Optional[str]]]],
     items_file: Optional[str],
     verbose: bool,
@@ -602,9 +627,15 @@ def transfer(
     if label:
         action_body["label"] = label
     else:
-        action_body["label"] = f"From Timer service job named {name}"
-    if sync_level:
+        action_body["label"] = f"Job from Timer service named {name}"
+    if sync_level is not None:
         action_body["sync_level"] = sync_level
+    if encrypt_data:
+        action_body["encrypt_data"] = encrypt_data
+    if verify_checksum:
+        action_body["verify_checksum"] = verify_checksum
+    if preserve_timestamp:
+        action_body["preserve_timestamp"] = preserve_timestamp
     callback_body = {"body": action_body}
     interval_seconds = _parse_timedelta(interval).total_seconds()
     if not interval_seconds:
