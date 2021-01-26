@@ -1,4 +1,5 @@
 from datetime import timedelta
+
 import pytest
 
 from timer_cli.main import _parse_timedelta
