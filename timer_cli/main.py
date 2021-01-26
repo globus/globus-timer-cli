@@ -630,12 +630,9 @@ def transfer(
         action_body["label"] = f"Job from Timer service named {name}"
     if sync_level is not None:
         action_body["sync_level"] = sync_level
-    if encrypt_data:
-        action_body["encrypt_data"] = encrypt_data
-    if verify_checksum:
-        action_body["verify_checksum"] = verify_checksum
-    if preserve_timestamp:
-        action_body["preserve_timestamp"] = preserve_timestamp
+    action_body["encrypt_data"] = encrypt_data
+    action_body["verify_checksum"] = verify_checksum
+    action_body["preserve_timestamp"] = preserve_timestamp
     callback_body = {"body": action_body}
     interval_seconds = _parse_timedelta(interval).total_seconds()
     if not interval_seconds:
