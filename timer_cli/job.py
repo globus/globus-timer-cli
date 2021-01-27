@@ -50,8 +50,8 @@ def job_submit(
     action_body: Optional[str] = None,
     action_file: Optional[click.File] = None,
     callback_body: Optional[dict] = None,
-    stop_after_date: Optional[datetime.datetime],
-    stop_after_runs: Optional[int],
+    stop_after_date: Optional[datetime.datetime] = None,
+    stop_after_runs: Optional[int] = None,
 ) -> requests.Response:
     if not callback_body:
         try:
