@@ -505,6 +505,18 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
     ),
 )
 @click.option(
+    "--stop-after-date",
+    required=False,
+    type=click.DateTime(formats=DATETIME_FORMATS),
+    help=("Stop running the transfer after this date"),
+)
+@click.option(
+    "--stop-after-runs",
+    required=False,
+    type=int,
+    help=("Stop running the transfer after this number of runs have happened"),
+)
+@click.option(
     "--sync-level",
     required=False,
     type=int,
@@ -579,6 +591,8 @@ def transfer(
     source_endpoint: str,
     dest_endpoint: str,
     label: Optional[str],
+    stop_after_date: Optional[datetime.datetime],
+    stop_after_runs: Optional[int],
     sync_level: Optional[int],
     encrypt_data: bool,
     verify_checksum: bool,
@@ -648,6 +662,8 @@ def transfer(
         action_body=None,
         action_file=None,
         callback_body=callback_body,
+        stop_after_date=stop_after_date,
+        stop_after_runs=stop_after_runs,
     )
     show_job(response, verbose=verbose)
 

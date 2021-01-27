@@ -50,6 +50,8 @@ def job_submit(
     action_body: Optional[str] = None,
     action_file: Optional[click.File] = None,
     callback_body: Optional[dict] = None,
+    stop_after_date: Optional[datetime.datetime],
+    stop_after_runs: Optional[int],
 ) -> requests.Response:
     if not callback_body:
         try:
@@ -79,6 +81,12 @@ def job_submit(
         "callback_url": callback_url,
         "callback_body": callback_body,
     }
+    if stop_after_date or stop_after_runs:
+        req_json["stop_after"] = dict()
+        if stop_after_date:
+            req_json["stop_after"]["date"] = stop_after_date
+        if stop_after_runs:
+            req_json["stop_after"]["n_runs"] = stop_after_runs
     # Ww'll make the job scope dependent on the timer service's job creation scope so we
     # can be sure that we can do a dependent token grant on the token that is sent
     token_scope = f"{TIMER_SERVICE_SCOPE}[{scope}]"
