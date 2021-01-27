@@ -3,8 +3,8 @@
 This is a beta-version CLI for use with the (also in beta) Globus Timer API, to
 use primarily for scheduling recurring Globus transfers through Globus Automate.
 
-As the CLI and service are still in beta, please feel free to email the current
-maintainer (rudyard at globus dot org) with feedback or to resolve issues.
+As the CLI and service are still in beta, please feel free to email support at
+globus dot org with feedback or to resolve issues.
 
 ## What is this Service/CLI for?
 
@@ -194,11 +194,11 @@ should stop:
 * `--stop-after-date` takes a date argument, telling Timer to continue running
   the job only until the given date.
 
-In either case, your job will still exist, and results will still be visible,
-while Timer will stop running it. If you specify both, the job stops running as
-soon as one stop condition is met. If you update an existing job to modify
-either of these, Timer will resume running the job until it hits your new stop
-condition.
+When either condition is reached, your job will still exist, and results will
+still be visible, but Timer will not run any more transfers. If you specify
+both, the job stops running as soon as one stop condition is met. If you update
+an existing job to modify either of these, Timer will resume running the job
+until it hits your new stop condition.
 
 As always, all of the above options are also documented in `globus-timer job
 transfer --help`.
