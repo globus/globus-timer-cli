@@ -30,7 +30,7 @@ def mock_transfer_functions(monkeypatch):
         monkeypatch.setattr("timer_cli.main.error_if_not_activated", lambda _: None)
         monkeypatch.setattr(
             "timer_cli.main._get_required_data_access_scopes",
-            lambda _: [
+            lambda _, _1: [
                 "https://auth.globus.org/scopes/{str(uuid.uuid4())}/data_access"
             ],
         )

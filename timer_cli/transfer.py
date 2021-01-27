@@ -56,6 +56,7 @@ def error_if_not_activated(endpoints: List[str], reactivate_if_expires_in=86400)
         sys.exit(1)
 
 
-def get_transfer_client():
-    transfer_authorizer = get_authorizer_for_scope(TRANSFER_ALL_SCOPE, all_scopes=[])
+def get_transfer_client(no_browser: bool = False):
+    transfer_authorizer = get_authorizer_for_scope(TRANSFER_ALL_SCOPE, all_scopes=[],
+                                                   no_browser=no_browser)
     return TransferClient(transfer_authorizer)

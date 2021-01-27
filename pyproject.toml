@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "globus-timer-cli"
-version = "0.1.18"
+version = "0.1.19"
 description = "CLI for interacting with the timer API"
 authors = ["Rudyard Richter <rudyard@globus.org>"]
 keywords = [
@@ -33,6 +33,8 @@ fair-research-login = "^0.2"
 requests = "^2.24.0"
 click = "^7.1.2"
 # fair-research-login = {path = "../fair-research/native-login"}
+# six is needed for fair but not installed there...
+six = "^1.15.0"
 
 [tool.poetry.dev-dependencies]
 importmagic = "^0.1.7"
