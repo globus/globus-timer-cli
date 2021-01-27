@@ -1,22 +1,21 @@
 # Globus Automate Timer CLI
 
-This is an alpha-version CLI for use with the (also in alpha) Globus Timer API, to use
-primarily for scheduling recurring Globus transfers through Globus Automate.
+This is a beta-version CLI for use with the (also in beta) Globus Timer API, to
+use primarily for scheduling recurring Globus transfers through Globus Automate.
 
-As the CLI and service are still in alpha, please feel free to email the current
-maintainer (rudyard at globus dot org) with feedback or to resolve issues.
+As the CLI and service are still in beta, please feel free to email support at
+globus dot org with feedback or to resolve issues.
 
 ## What is this Service/CLI for?
 
-The Globus Timer service can be used to schedule recurring transfer
-tasks. For example, let’s say we want to have a transfer automatically
-run every night to back up data. We submit a job to the Timer Service
-starting tonight, and with an interval of 1 day at which it will be
-re-run. In that request we provide the Timer service the same input we
-would give to the [Globus Transfer Action Provider]();
-that part of the request contains the information for what Globus endpoints
-we transfer to and from as well as other options relevant to the
-transfer.
+The Globus Timer service can be used to schedule recurring transfer tasks. For
+example, let's say we want to have a transfer automatically run every night to
+back up data. We submit a job to the Timer Service starting tonight, and with an
+interval of 1 day at which it will be re-run. In that request we provide the
+Timer service the same input we would give to the [Globus Transfer Action
+Provider](https://globus-automate-client.readthedocs.io/en/latest/globus_action_providers.html#globus-transfer-transfer-data);
+that part of the request contains the information for what Globus endpoints we
+transfer to and from as well as other options relevant to the transfer.
 
 ## Installation
 
@@ -35,16 +34,15 @@ doubt, add `--help` to a command for guidance on next steps.
 
 ## Getting Started
 
-To schedule transfers on your behalf, this CLI requires authentication
-through Globus Auth. Upon first use, the CLI will prompt you to
-authorize use via the Globus Auth system. Typically, this will occur
-by opening a web browser which will request that you login to your
-Globus identity and to consent to the service looking up your identity
-and interacting with the Globus Transfer service on your behalf. Some
-Globus endpoints require additional authentication for use, when this
-is necessary, a second browser window may open asking for consent for
-using the Globus Transfer service and additionally for the specific
-endpoint(s) used with that job.
+To schedule transfers on your behalf, this CLI requires authentication through
+Globus Auth. Initially, the CLI will prompt you to authorize use via the Globus
+Auth system. Typically, this will occur by opening a web browser which will
+request that you login to your Globus identity and to consent to the service
+looking up your identity and interacting with the Globus Transfer service on
+your behalf. Some Globus endpoints require additional authentication for use;
+when this is necessary, a second browser window may open asking for consent for
+using the Globus Transfer service and additionally for the specific endpoint(s)
+used with that job.
 
 Authentication information is thereafter cached in the file
 `~/.globus_timer_tokens.cfg` (so the authentication process is only
@@ -79,11 +77,11 @@ preferred to properly delete jobs as described below.
 
 ## Scheduling Periodic Globus Transfer operations
 
-NOTE: To avoid confusion, please read the entirety of this section before using the
-`job transfer` sub-command.
+NOTE: To avoid confusion, please read the entirety of this section before using
+the `job transfer` sub-command.
 
-The starting point for working with the Timer service is scheduling
-transfers to run periodically. The form of this command is below:
+The starting point for working with the Timer service is scheduling transfers to
+run periodically. The form of this command is below:
 
 ```
 globus-timer job transfer \
@@ -97,8 +95,8 @@ globus-timer job transfer \
     --item ~/file2.txt ~/new_file2.txt false
 ```
 
-The parameters to the `job transfer` command are as follows, and may
-be seen also by invoking `globus-timer job transfer --help`:
+The parameters to the `job transfer` command are as follows (also documented in
+the CLI help: `globus-timer job transfer --help`):
 
 * `name`: A friendly name you can use to identify the job. However,
   note that all operations on the job (see below) are based on the job
@@ -173,7 +171,37 @@ If this file was named `transfer_items.csv` it would be specified with the param
 --items-file transfer_items.csv
 ```
 
-Note that this is a CSV file. The individual parts of the item are separated with commas, and lines starting with a `#` are considered to be comments and are not processed as items for the transfer job.
+Note that this is a CSV file. The individual parts of the item are separated
+with commas, and lines starting with a `#` are considered to be comments and are
+not processed as items for the transfer job.
+
+### Additional Transfer Options
+
+Some optional flags for setting certain Transfer options include:
+
+* `--sync-level`, adjusting how Transfer should behave if files already exist at
+  the destination
+* `--verify-checksum`, causing Transfer to retry if file checksums don't match
+* `--encrypt-data`, causing Transfer to encrypt data using TLS
+* `--preserve-timestamp`, causing Transfer to keep file timestamps the same at
+  the destination
+
+You may also specify a finite number of times or duration after which a job
+should stop:
+
+* `--stop-after-runs` takes a number, telling Timer to run the job only that
+  many times.
+* `--stop-after-date` takes a date argument, telling Timer to continue running
+  the job only until the given date.
+
+When either condition is reached, your job will still exist, and results will
+still be visible, but Timer will not run any more transfers. If you specify
+both, the job stops running as soon as one stop condition is met. If you update
+an existing job to modify either of these, Timer will resume running the job
+until it hits your new stop condition.
+
+As always, all of the above options are also documented in `globus-timer job
+transfer --help`.
 
 ## Monitoring and Controlling Submitted jobs
 
@@ -253,6 +281,3 @@ displayed, showing the final state of the job. As described above, the
 providing the `--show-deleted` flag. This can be helpful to review the
 final state of the job, such as the last transfer or error condition,
 even if the output for the `job delete` command is lost.
-
-
-[Globus Transfer Action Provider]: (https://globus-automate-client.readthedocs.io/en/latest/globus_action_providers.html#globus-transfer-transfer-data)
