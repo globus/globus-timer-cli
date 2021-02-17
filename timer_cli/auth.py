@@ -58,6 +58,7 @@ def get_authorizers_for_scope(
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
     no_login: bool = False,
+    no_browser: bool = False,
 ) -> Optional[Dict[str, GlobusAuthorizer]]:
     client = _get_native_client(
         scopes, token_store=token_store, client_id=client_id, client_name=client_name
@@ -84,6 +85,7 @@ def get_authorizers_for_scope(
                 # they are scopes with dynamic dependencies.
                 requested_scopes=scopes,
                 refresh_tokens=True,
+                no_browser=no_browser,
             )
             return client.get_authorizers_by_scope(requested_scopes=base_scopes)
     except (LoginException, AuthAPIError) as e:
@@ -98,6 +100,7 @@ def get_authorizer_for_scope(
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
     no_login: bool = False,
+    no_browser: bool = False,
 ) -> Optional[GlobusAuthorizer]:
     authorizers = get_authorizers_for_scope(
         [scope] + all_scopes,
@@ -105,6 +108,7 @@ def get_authorizer_for_scope(
         client_id=client_id,
         client_name=client_name,
         no_login=no_login,
+        no_browser=no_browser,
     )
     if not authorizers:
         return None
@@ -154,6 +158,7 @@ def revoke_login(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
 def get_current_user(
     token_store: Optional[str] = None,
     no_login: bool = False,
+    no_browser: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
     When `no_login` is set, returns `None` if not logged in.
@@ -165,6 +170,7 @@ def get_current_user(
         AUTH_SCOPES[0],
         token_store=token_store,
         no_login=no_login,
+        no_browser=no_browser,
     )
     if not authorizer:
         return None

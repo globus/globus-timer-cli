@@ -106,8 +106,10 @@ def _read_csv(
             yield {k: transform_val(k, v) for k, v in row_dict.items()}
 
 
-def _get_required_data_access_scopes(collection_ids: Iterable[str]) -> List[str]:
-    tc = get_transfer_client()
+def _get_required_data_access_scopes(
+    tc: TransferClient,
+    collection_ids: Iterable[str],
+) -> List[str]:
     data_access_scopes: List[str] = []
     for collection_id in collection_ids:
         collection_id_info = tc.get_endpoint(collection_id)
@@ -578,6 +580,12 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
     help="file containing table of items to transfer",
 )
 @click.option(
+    "--no-browser",
+    is_flag=True,
+    default=False,
+    help="Avoid trying to open a browser if authentication is necessary",
+)
+@click.option(
     "--verbose",
     "-v",
     is_flag=True,
@@ -599,6 +607,7 @@ def transfer(
     preserve_timestamp: bool,
     item: Optional[List[Tuple[str, str, Optional[str]]]],
     items_file: Optional[str],
+    no_browser: bool,
     verbose: bool,
 ):
     """
@@ -609,8 +618,9 @@ def transfer(
         "https://actions.automate.globus.org/transfer/transfer/run"
     )
     endpoints = [source_endpoint, dest_endpoint]
-    error_if_not_activated(endpoints)
-    data_access_scopes = _get_required_data_access_scopes(endpoints)
+    tc = get_transfer_client(no_browser=no_browser)
+    error_if_not_activated(tc, endpoints)
+    data_access_scopes = _get_required_data_access_scopes(tc, endpoints)
     transfer_ap_scope = (
         "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
     )
@@ -677,8 +687,14 @@ def session():
     help="Cache identity information for future operations. This is "
     "optional, as it will be done on demand if this command is not used."
 )
-def login():
-    user_info = get_current_user()
+@click.option(
+    "--no-browser",
+    is_flag=True,
+    default=False,
+    help="Avoid trying to open a browser if authentication is necessary",
+)
+def login(no_browser: bool):
+    user_info = get_current_user(no_browser=no_browser)
     click.echo(f"Logged in as {user_info['preferred_username']}")
 
 
