@@ -32,8 +32,11 @@ def endpoints_not_activated(
     return result
 
 
-def error_if_not_activated(endpoints: List[str], reactivate_if_expires_in=86400):
-    transfer_client = get_transfer_client()
+def error_if_not_activated(
+    transfer_client: TransferClient,
+    endpoints: List[str],
+    reactivate_if_expires_in=86400,
+):
     not_activated = endpoints_not_activated(transfer_client, endpoints)
     still_not_activated = []
     for endpoint in not_activated:
@@ -57,6 +60,7 @@ def error_if_not_activated(endpoints: List[str], reactivate_if_expires_in=86400)
 
 
 def get_transfer_client(no_browser: bool = False):
-    transfer_authorizer = get_authorizer_for_scope(TRANSFER_ALL_SCOPE, all_scopes=[],
-                                                   no_browser=no_browser)
+    transfer_authorizer = get_authorizer_for_scope(
+        TRANSFER_ALL_SCOPE, all_scopes=[], no_browser=no_browser
+    )
     return TransferClient(transfer_authorizer)

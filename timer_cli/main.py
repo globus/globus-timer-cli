@@ -618,8 +618,8 @@ def transfer(
         "https://actions.automate.globus.org/transfer/transfer/run"
     )
     endpoints = [source_endpoint, dest_endpoint]
-    error_if_not_activated(endpoints)
     tc = get_transfer_client(no_browser=no_browser)
+    error_if_not_activated(tc, endpoints)
     data_access_scopes = _get_required_data_access_scopes(tc, endpoints)
     transfer_ap_scope = (
         "https://auth.globus.org/scopes/actions.globus.org/transfer/transfer"
