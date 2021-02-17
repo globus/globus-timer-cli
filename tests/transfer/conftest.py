@@ -27,7 +27,7 @@ def make_required_args():
 @pytest.fixture
 def mock_transfer_functions(monkeypatch):
     def f():
-        monkeypatch.setattr("timer_cli.main.error_if_not_activated", lambda _: None)
+        monkeypatch.setattr("timer_cli.main.error_if_not_activated", lambda _, _1: None)
         monkeypatch.setattr(
             "timer_cli.main._get_required_data_access_scopes",
             lambda _, _1: [
