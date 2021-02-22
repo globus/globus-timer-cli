@@ -15,7 +15,6 @@ import uuid
 
 import click
 from globus_sdk import TransferClient
-
 from timer_cli.auth import get_current_user
 from timer_cli.auth import logout as auth_logout
 from timer_cli.auth import revoke_login
@@ -607,7 +606,6 @@ def transfer(
     preserve_timestamp: bool,
     item: Optional[List[Tuple[str, str, Optional[str]]]],
     items_file: Optional[str],
-    no_browser: bool,
     verbose: bool,
 ):
     """
@@ -618,7 +616,7 @@ def transfer(
         "https://actions.automate.globus.org/transfer/transfer/run"
     )
     endpoints = [source_endpoint, dest_endpoint]
-    tc = get_transfer_client(no_browser=no_browser)
+    tc = get_transfer_client()
     error_if_not_activated(tc, endpoints)
     data_access_scopes = _get_required_data_access_scopes(tc, endpoints)
     transfer_ap_scope = (
@@ -687,14 +685,8 @@ def session():
     help="Cache identity information for future operations. This is "
     "optional, as it will be done on demand if this command is not used."
 )
-@click.option(
-    "--no-browser",
-    is_flag=True,
-    default=False,
-    help="Avoid trying to open a browser if authentication is necessary",
-)
-def login(no_browser: bool):
-    user_info = get_current_user(no_browser=no_browser)
+def login():
+    user_info = get_current_user()
     click.echo(f"Logged in as {user_info['preferred_username']}")
 
 

@@ -133,17 +133,6 @@ python-versions = "*"
 sexpdata = ">=0.0.3"
 
 [[package]]
-name = "fair-research-login"
-version = "0.2.0"
-description = "A generalized library for storing native auth tokens"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-globus-sdk = ">=1.5.0"
-
-[[package]]
 name = "globus-sdk"
 version = "2.0.1"
 description = "Globus SDK for Python"
@@ -499,7 +488,7 @@ testing = ["pytest (>=3.5,!=3.7.3)", "pytest-checkdocs (>=1.2.3)", "pytest-flake
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.6"
-content-hash = "a20f0e067aa4b6a6cfa3cd21724ef987ae8a1b3d85710bc573d19fd33363a444"
+content-hash = "a6eea8b34d786129bef651f0e68701d1ec6236ce3dc8505d05d783643f02449c"
 
 [metadata.files]
 appdirs = [
@@ -574,11 +563,16 @@ colorama = [
 ]
 cryptography = [
     {file = "cryptography-3.4.6-cp36-abi3-macosx_10_10_x86_64.whl", hash = "sha256:57ad77d32917bc55299b16d3b996ffa42a1c73c6cfa829b14043c561288d2799"},
+    {file = "cryptography-3.4.6-cp36-abi3-macosx_11_0_arm64.whl", hash = "sha256:4169a27b818de4a1860720108b55a2801f32b6ae79e7f99c00d79f2a2822eeb7"},
     {file = "cryptography-3.4.6-cp36-abi3-manylinux2010_x86_64.whl", hash = "sha256:93cfe5b7ff006de13e1e89830810ecbd014791b042cbe5eec253be11ac2b28f3"},
     {file = "cryptography-3.4.6-cp36-abi3-manylinux2014_aarch64.whl", hash = "sha256:5ecf2bcb34d17415e89b546dbb44e73080f747e504273e4d4987630493cded1b"},
     {file = "cryptography-3.4.6-cp36-abi3-manylinux2014_x86_64.whl", hash = "sha256:fec7fb46b10da10d9e1d078d1ff8ed9e05ae14f431fdbd11145edd0550b9a964"},
     {file = "cryptography-3.4.6-cp36-abi3-win32.whl", hash = "sha256:df186fcbf86dc1ce56305becb8434e4b6b7504bc724b71ad7a3239e0c9d14ef2"},
     {file = "cryptography-3.4.6-cp36-abi3-win_amd64.whl", hash = "sha256:66b57a9ca4b3221d51b237094b0303843b914b7d5afd4349970bb26518e350b0"},
+    {file = "cryptography-3.4.6-pp36-pypy36_pp73-manylinux2010_x86_64.whl", hash = "sha256:066bc53f052dfeda2f2d7c195cf16fb3e5ff13e1b6b7415b468514b40b381a5b"},
+    {file = "cryptography-3.4.6-pp36-pypy36_pp73-manylinux2014_x86_64.whl", hash = "sha256:600cf9bfe75e96d965509a4c0b2b183f74a4fa6f5331dcb40fb7b77b7c2484df"},
+    {file = "cryptography-3.4.6-pp37-pypy37_pp73-manylinux2010_x86_64.whl", hash = "sha256:0923ba600d00718d63a3976f23cab19aef10c1765038945628cd9be047ad0336"},
+    {file = "cryptography-3.4.6-pp37-pypy37_pp73-manylinux2014_x86_64.whl", hash = "sha256:9e98b452132963678e3ac6c73f7010fe53adf72209a32854d55690acac3f6724"},
     {file = "cryptography-3.4.6.tar.gz", hash = "sha256:2d32223e5b0ee02943f32b19245b61a62db83a882f0e76cc564e1cec60d48f87"},
 ]
 dataclasses = [
@@ -587,10 +581,6 @@ dataclasses = [
 ]
 epc = [
     {file = "epc-0.0.5.tar.gz", hash = "sha256:a14d2ea74817955a20eb00812e3a4630a132897eb4d976420240f1152c0d7d25"},
-]
-fair-research-login = [
-    {file = "fair-research-login-0.2.0.tar.gz", hash = "sha256:f9579242ed916ce5f0f61d05790d9dfaea79ded106a9d424393471846972cd87"},
-    {file = "fair_research_login-0.2.0-py2.py3-none-any.whl", hash = "sha256:dba7f2dc176ff7926c7fd075b49f0935b364352104da190dbd85981f0b8641ca"},
 ]
 globus-sdk = [
     {file = "globus-sdk-2.0.1.tar.gz", hash = "sha256:94225982da7596f5bc8cd3dc30a4746014bf1f501cc8b23fe4dfd230114ae7e6"},
