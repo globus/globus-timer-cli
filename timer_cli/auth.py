@@ -124,11 +124,13 @@ def _do_login_for_scopes(
 
 def get_authorizers_for_scopes(
     scopes: List[str],
-    token_store: str = str(DEFAULT_TOKEN_FILE),
+    token_store: Optional[str] = None,
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
     no_login: bool = False,
 ) -> Dict[str, GlobusAuthorizer]:
+    if token_store is None:
+        token_store = str(DEFAULT_TOKEN_FILE)
     token_cache = TokenCache(token_store)
     token_cache.load_tokens()
     token_sets: Dict[str, TokenSet] = {}
