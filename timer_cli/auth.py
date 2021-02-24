@@ -1,10 +1,11 @@
+from collections import defaultdict
 import json
 from json import JSONDecodeError
 import os
 import pathlib
 import platform
 import sys
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional, Set
 
 import click
 from globus_sdk import AuthClient, NativeAppAuthClient
@@ -29,6 +30,12 @@ class TokenSet(NamedTuple):
     access_token: str
     refresh_token: Optional[str]
     expiration_time: Optional[int]
+    # Keep track of scopes associated with these tokens with the dependencies still
+    # included. If we need to get a token where tokens for the base scope exist but
+    # there isn't a matching dependent scope, that means we need to prompt for consent
+    # again. If there is a matching full-scope-string in `dependent_scopes`, then we're
+    # OK to use the token from looking up that base scope.
+    dependent_scopes: Set[str]
 
 
 class TokenCache:
@@ -44,16 +51,40 @@ class TokenCache:
         return tokens
 
     def get_tokens(self, scope: str) -> Optional[TokenSet]:
+        if "[" in scope:
+            # If the full scope string is in our mapping already, we can just return
+            # the tokens. If not, even if we have a token for the base scope, we
+            # shouldn't return that because it won't work for the new scope.
+            base_scope = scope.split("[")[0]
+            tokens = self.tokens.get(base_scope)
+            if not tokens or scope not in getattr(tokens, "dependent_scopes", set()):
+                return None
+            else:
+                return tokens
         return self.tokens.get(scope)
 
     def load_tokens(self):
+        """
+        May raise an EnvironmentError if the cache file exists but can't be read.
+        """
         try:
             with open(self.token_store) as f:
-                self.tokens = {k: TokenSet(**v) for k, v in json.load(f).items()}
-        except (FileNotFoundError, JSONDecodeError):
+                contents = json.load(f)
+                self.tokens = {k: TokenSet(**v) for k, v in contents.items()}
+        except FileNotFoundError:
             pass
+        except JSONDecodeError:
+            raise EnvironmentError(
+                "Token cache for Timer CLI is corrupted; please run a `session revoke`"
+                " and try again"
+            )
 
     def save_tokens(self):
+        def default(x):
+            if isinstance(x, set):
+                return list(x)
+            return str(x)
+
         if self.modified:
             with open(self.token_store, "w") as f:
                 json.dump(
@@ -61,21 +92,23 @@ class TokenCache:
                     f,
                     indent=2,
                     sort_keys=True,
-                    default=lambda s: str(x),
+                    default=default,
                 )
         self.modified = False
 
     def update_from_oauth_token_response(
-        self, token_response: OAuthTokenResponse
+        self, token_response: OAuthTokenResponse, original_scopes: Set[str]
     ) -> Dict[str, TokenSet]:
         by_scopes = token_response.by_scopes
         token_sets: Dict[str, TokenSet] = {}
         for scope in by_scopes:
             token_info = by_scopes[scope]
+            dependent_scopes = set(s for s in original_scopes if "[" in s)
             token_set = TokenSet(
                 access_token=token_info.get("access_token"),
                 refresh_token=token_info.get("refresh_token"),
                 expiration_time=token_info.get("expires_at_seconds"),
+                dependent_scopes=dependent_scopes,
             )
             self.set_tokens(scope, token_set)
             token_sets[scope] = token_set
@@ -129,8 +162,7 @@ def get_authorizers_for_scopes(
     client_name: str = CLIENT_NAME,
     no_login: bool = False,
 ) -> Dict[str, GlobusAuthorizer]:
-    if token_store is None:
-        token_store = str(DEFAULT_TOKEN_FILE)
+    token_store = token_store or str(DEFAULT_TOKEN_FILE)
     token_cache = TokenCache(token_store)
     token_cache.load_tokens()
     token_sets: Dict[str, TokenSet] = {}
@@ -146,7 +178,9 @@ def get_authorizers_for_scopes(
 
     if len(needed_scopes) > 0 and not no_login:
         token_response = _do_login_for_scopes(native_client, list(needed_scopes))
-        new_tokens = token_cache.update_from_oauth_token_response(token_response)
+        new_tokens = token_cache.update_from_oauth_token_response(
+            token_response, set(scopes)
+        )
         token_sets.update(new_tokens)
 
     authorizers: Dict[str, GlobusAuthorizer] = {}
@@ -158,7 +192,7 @@ def get_authorizers_for_scopes(
                     grant_response: OAuthTokenResponse, *args, **kwargs
                 ):
                     new_tokens = token_cache.update_from_oauth_token_response(
-                        grant_response
+                        grant_response, set([scope])
                     )
 
                 authorizer = RefreshTokenAuthorizer(
@@ -176,24 +210,18 @@ def get_authorizers_for_scopes(
     return authorizers
 
 
-def get_access_tokens_for_scopes(
-    scopes: List[str],
-    token_store: str = str(DEFAULT_TOKEN_FILE),
-    client_id: str = CLIENT_ID,
-    client_name: str = CLIENT_NAME,
-) -> Dict[str, str]:
-    authorizers = get_authorizers_for_scopes(
-        scopes, token_store, client_id, client_name
-    )
-    return {k: v.access_token for k, v in authorizers.items()}
-
-
-def get_access_token_for_scope(
-    token_store: Optional[str] = None,
-    token_scope: str = TIMER_SERVICE_SCOPE,
-) -> Optional[str]:
-    access_tokens = get_access_tokens_for_scopes([token_scope], token_store)
-    return access_tokens.get(token_scope)
+def get_access_token_for_scope(scope: str):
+    authorizer = get_authorizers_for_scopes([scope]).get(scope)
+    if not authorizer:
+        # TODO
+        print("NO AUTHORIZER")
+        raise RuntimeError()
+    token = getattr(authorizer, "access_token", None)
+    if not token:
+        # TODO
+        print("NO TOKEN")
+        raise RuntimeError()
+    return token
 
 
 def logout(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
@@ -217,10 +245,11 @@ def revoke_login(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
     2. It removes the token store file. This is good as it essentially causes the user
     to re-login on next use.
     """
-    client = _get_native_client([], token_store=token_store)
-    if client:
-        client.logout()
-    return client is not None
+    # TODO
+    # client = _get_native_client([], token_store=token_store)
+    # if client:
+    #    client.logout()
+    # return client is not None
 
 
 def get_current_user(

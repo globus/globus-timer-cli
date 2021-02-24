@@ -15,6 +15,7 @@ import uuid
 
 import click
 from globus_sdk import TransferClient
+
 from timer_cli.auth import get_current_user
 from timer_cli.auth import logout as auth_logout
 from timer_cli.auth import revoke_login
@@ -577,12 +578,6 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
     cls=JointlyExhaustive,
     jointly_exhaustive=["item"],
     help="file containing table of items to transfer",
-)
-@click.option(
-    "--no-browser",
-    is_flag=True,
-    default=False,
-    help="Avoid trying to open a browser if authentication is necessary",
 )
 @click.option(
     "--verbose",
