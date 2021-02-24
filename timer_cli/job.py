@@ -90,7 +90,7 @@ def job_submit(
     token_scope = f"{TIMER_SERVICE_SCOPE}[{scope}]"
     try:
         headers = get_headers(token_scope=token_scope)
-    except EnvironmentError as e:
+    except (EnvironmentError, ValueError) as e:
         click.echo(str(e), err=True)
         sys.exit(1)
     try:

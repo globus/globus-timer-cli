@@ -26,6 +26,12 @@ ALL_SCOPES = AUTH_SCOPES + [TIMER_SERVICE_SCOPE]
 DEFAULT_TOKEN_FILE = pathlib.Path.home() / pathlib.Path(".globus_timer_tokens.json")
 
 
+def _get_base_scope(scope: str):
+    if "[" in scope:
+        return scope.split("[")[0]
+    return scope
+
+
 class TokenSet(NamedTuple):
     access_token: str
     refresh_token: Optional[str]
@@ -206,50 +212,43 @@ def get_authorizers_for_scopes(
                 authorizer.check_expiration_time()
             else:
                 authorizer = AccessTokenAuthorizer(token_set.access_token)
-            authorizers[scope] = authorizer
+            authorizers[_get_base_scope(scope)] = authorizer
     return authorizers
 
 
-def get_access_token_for_scope(scope: str):
-    authorizer = get_authorizers_for_scopes([scope]).get(scope)
+def get_access_token_for_scope(scope: str) -> Optional[str]:
+    authorizer = get_authorizers_for_scopes([scope]).get(_get_base_scope(scope))
     if not authorizer:
-        # TODO
-        print("NO AUTHORIZER")
-        raise RuntimeError()
+        click.echo(f"couldn't obtain authorizer for scope: {scope}", err=True)
+        return None
     token = getattr(authorizer, "access_token", None)
     if not token:
-        # TODO
-        print("NO TOKEN")
-        raise RuntimeError()
+        click.echo("authorizer failed to get token from Globus Auth")
+        return None
     return token
 
 
-def logout(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
+def logout(client: NativeAppAuthClient, token_store: str = DEFAULT_TOKEN_FILE) -> bool:
     try:
         os.remove(token_store)
-        return True
     except OSError:
+        click.echo("couldn't remove token cache file", err=True)
         return False
+    return True
 
 
 def revoke_login(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
-    """
-    This calls the fair research login function logout on the client. This has two side
-    effects:
-
-    1. It revokes the tokens that it has been issued. This means that any place those
-    tokens (including refresh tokens) are in use, they will no longer be valid tokens.
-    This can be a problem for services like timer that refresh and re-use tokens over a
-    long period of time.
-
-    2. It removes the token store file. This is good as it essentially causes the user
-    to re-login on next use.
-    """
-    # TODO
-    # client = _get_native_client([], token_store=token_store)
-    # if client:
-    #    client.logout()
-    # return client is not None
+    client = _get_globus_sdk_native_client(CLIENT_ID, CLIENT_NAME)
+    if not client:
+        click.echo("failed to get auth client", err=True)
+        return False
+    cache = TokenCache(token_store)
+    for token_set in cache.tokens.values():
+        client.oauth2_revoke_token(token_set.access_token)
+        client.oauth2_revoke_token(token_set.refresh_token)
+    if not logout(client, token_store):
+        return False
+    return True
 
 
 def get_current_user(

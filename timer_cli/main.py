@@ -721,8 +721,7 @@ def logout():
 
 @session.command(help="Remove Timer's authorization to use your credentials.")
 def revoke():
-    revoked = revoke_login()
-    if revoked:
+    if revoke_login():
         click.echo("Successfully revoked permission for all Timer operations.")
     else:
         click.echo("Unable to revoke login.")
