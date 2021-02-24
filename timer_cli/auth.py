@@ -51,7 +51,6 @@ class TokenCache:
         self.modified = False
 
     def set_tokens(self, scope: str, tokens: TokenSet) -> TokenSet:
-        print(f"DEBUG set_tokens (scope, tokens):= {(scope, tokens)}")
         self.tokens[scope] = tokens
         self.modified = True
         return tokens
@@ -156,9 +155,7 @@ def _do_login_for_scopes(
         )
     )
     auth_code = click.prompt("Enter the resulting Authorization Code here").strip()
-    token_response = native_client.oauth2_exchange_code_for_tokens(auth_code)
-
-    return token_response
+    return native_client.oauth2_exchange_code_for_tokens(auth_code)
 
 
 def get_authorizers_for_scopes(
