@@ -51,7 +51,13 @@ class TokenCache:
         self.modified = False
 
     def set_tokens(self, scope: str, tokens: TokenSet) -> TokenSet:
-        self.tokens[scope] = tokens
+        if scope in self.tokens:
+            self.tokens[scope].access_token = tokens.access_token
+            self.tokens[scope].refresh_token = tokens.refresh_token
+            self.tokens[scope].expiration_time = tokens.expiration_time
+            self.tokens[scope].dependent_scopes.update(tokens.dependent_scopes)
+        else:
+            self.tokens[scope] = tokens
         self.modified = True
         return tokens
 
