@@ -231,7 +231,7 @@ def get_access_token_for_scope(scope: str) -> Optional[str]:
     return token
 
 
-def logout(client: NativeAppAuthClient, token_store: str = DEFAULT_TOKEN_FILE) -> bool:
+def logout(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
     try:
         os.remove(token_store)
     except OSError:
@@ -249,7 +249,7 @@ def revoke_login(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
     for token_set in cache.tokens.values():
         client.oauth2_revoke_token(token_set.access_token)
         client.oauth2_revoke_token(token_set.refresh_token)
-    if not logout(client, token_store):
+    if not logout(token_store):
         return False
     return True
 
