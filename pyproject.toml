@@ -29,12 +29,8 @@ globus-timer = "timer_cli.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.6"
-# fair-research-login = "^0.2"
 requests = "^2.24.0"
 click = "^7.1.2"
-# fair-research-login = {path = "../fair-research/native-login"}
-# six is needed for fair but not installed there...
-six = "^1.15.0"
 globus-sdk = "^2.0.1"
 
 [tool.poetry.dev-dependencies]
