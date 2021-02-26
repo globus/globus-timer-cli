@@ -4,7 +4,7 @@ from typing import List
 import click
 from globus_sdk import GlobusError, TransferClient
 
-from timer_cli.auth import get_authorizer_for_scope
+from timer_cli.auth import get_authorizers_for_scopes
 
 TRANSFER_ALL_SCOPE = "urn:globus:auth:scope:transfer.api.globus.org:all"
 
@@ -59,8 +59,6 @@ def error_if_not_activated(
         sys.exit(1)
 
 
-def get_transfer_client(no_browser: bool = False):
-    transfer_authorizer = get_authorizer_for_scope(
-        TRANSFER_ALL_SCOPE, all_scopes=[], no_browser=no_browser
-    )
-    return TransferClient(transfer_authorizer)
+def get_transfer_client():
+    authorizers = get_authorizers_for_scopes([TRANSFER_ALL_SCOPE])
+    return TransferClient(authorizers.get(TRANSFER_ALL_SCOPE))

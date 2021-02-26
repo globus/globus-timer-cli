@@ -28,17 +28,15 @@ def handle_requests_exception(e: Exception):
     sys.exit(1)
 
 
-def get_headers(
-    token_store: Optional[str] = None, token_scope=TIMER_SERVICE_SCOPE
-) -> Dict[str, str]:
+def get_headers(token_scope: str = TIMER_SERVICE_SCOPE) -> Dict[str, str]:
     """
     Assemble any needed headers that should go in all requests to the timer API, such
     as the access token.
     """
-    access_token = get_access_token_for_scope(
-        token_store=token_store, token_scope=token_scope
-    )
-    return {"Authorization": f"Bearer {access_token}"}
+    token = get_access_token_for_scope(token_scope)
+    if not token:
+        raise ValueError("couldn't get token")
+    return {"Authorization": f"Bearer {token}"}
 
 
 def job_submit(
@@ -90,7 +88,11 @@ def job_submit(
     # Ww'll make the job scope dependent on the timer service's job creation scope so we
     # can be sure that we can do a dependent token grant on the token that is sent
     token_scope = f"{TIMER_SERVICE_SCOPE}[{scope}]"
-    headers = get_headers(token_scope=token_scope)
+    try:
+        headers = get_headers(token_scope=token_scope)
+    except (EnvironmentError, ValueError) as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
     try:
         return requests.post(
             _TIMER_JOBS_URL,

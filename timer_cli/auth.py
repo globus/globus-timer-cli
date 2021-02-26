@@ -1,16 +1,17 @@
+from collections import defaultdict
+import json
+from json import JSONDecodeError
 import os
 import pathlib
+import platform
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NamedTuple, Optional, Set
 
 import click
-from fair_research_login.client import NativeClient
-from fair_research_login.exc import LoadError, LoginException
-from globus_sdk import AuthClient
-from globus_sdk.authorizers import GlobusAuthorizer
+from globus_sdk import AuthClient, NativeAppAuthClient
+from globus_sdk.auth.token_response import OAuthTokenResponse
+from globus_sdk.authorizers import GlobusAuthorizer, RefreshTokenAuthorizer
 from globus_sdk.exc import AuthAPIError
-
-from timer_cli.dynamic_dep_storage import DynamicDependencyTokenStorage
 
 CLIENT_ID = "bc77d044-1f42-46cc-9702-87f756cd08a6"
 CLIENT_NAME = "Globus Timer Command Line Interface"
@@ -22,143 +23,239 @@ AUTH_SCOPES = [
 ]
 ALL_SCOPES = AUTH_SCOPES + [TIMER_SERVICE_SCOPE]
 
-DEFAULT_TOKEN_FILE = pathlib.Path.home() / pathlib.Path(".globus_timer_tokens.cfg")
+DEFAULT_TOKEN_FILE = pathlib.Path.home() / pathlib.Path(".globus_timer_tokens.json")
 
 
-def _get_native_client(
-    scopes: List[str],
-    token_store: Optional[str] = None,
-    client_id: str = CLIENT_ID,
-    client_name: str = CLIENT_NAME,
-) -> Optional[NativeClient]:
-    # use this rather than the actual default argument so we can chain multiple default
-    # arguments (from `get_headers`)
-    token_store = token_store or DEFAULT_TOKEN_FILE
-    try:
-        return NativeClient(
-            client_id=CLIENT_ID,
-            app_name=CLIENT_NAME,
-            token_storage=DynamicDependencyTokenStorage(token_store, scopes),
-        )
-    except FileNotFoundError:
-        click.echo(
-            (
-                f"Unable to access or create file for token storage ({token_store});"
-                "make sure the CLI would be allowed to create the directory if it"
-                " doesn't exist, and/or open that file inside that directory"
-            ),
-            err=True,
-        )
-        return None
+def _get_base_scope(scope: str):
+    if "[" in scope:
+        return scope.split("[")[0]
+    return scope
 
 
-def get_authorizers_for_scope(
-    scopes: List[str],
-    token_store: Optional[str] = None,
-    client_id: str = CLIENT_ID,
-    client_name: str = CLIENT_NAME,
-    no_login: bool = False,
-    no_browser: bool = False,
-) -> Optional[Dict[str, GlobusAuthorizer]]:
-    client = _get_native_client(
-        scopes, token_store=token_store, client_id=client_id, client_name=client_name
-    )
-    if no_login:
+class TokenSet(NamedTuple):
+    access_token: str
+    refresh_token: Optional[str]
+    expiration_time: Optional[int]
+    # Keep track of scopes associated with these tokens with the dependencies still
+    # included. If we need to get a token where tokens for the base scope exist but
+    # there isn't a matching dependent scope, that means we need to prompt for consent
+    # again. If there is a matching full-scope-string in `dependent_scopes`, then we're
+    # OK to use the token from looking up that base scope.
+    dependent_scopes: Set[str]
+
+
+class TokenCache:
+    def __init__(self, token_store: str):
+        self.token_store = token_store
+        self.tokens: Dict[str, TokenSet] = {}
+        self.modified = False
+
+    def set_tokens(self, scope: str, tokens: TokenSet) -> TokenSet:
+        if scope in self.tokens:
+            self.tokens[scope].access_token = tokens.access_token
+            self.tokens[scope].refresh_token = tokens.refresh_token
+            self.tokens[scope].expiration_time = tokens.expiration_time
+            self.tokens[scope].dependent_scopes.update(tokens.dependent_scopes)
+        else:
+            self.tokens[scope] = tokens
+        self.modified = True
+        return tokens
+
+    def get_tokens(self, scope: str) -> Optional[TokenSet]:
+        if "[" in scope:
+            # If the full scope string is in our mapping already, we can just return
+            # the tokens. If not, even if we have a token for the base scope, we
+            # shouldn't return that because it won't work for the new scope.
+            base_scope = scope.split("[")[0]
+            tokens = self.tokens.get(base_scope)
+            if not tokens or scope not in getattr(tokens, "dependent_scopes", set()):
+                return None
+            else:
+                return tokens
+        return self.tokens.get(scope)
+
+    def load_tokens(self):
+        """
+        May raise an EnvironmentError if the cache file exists but can't be read.
+        """
         try:
-            client.load_tokens(requested_scopes=ALL_SCOPES)
-        except LoadError:
-            return None
-    try:
-        dd_scopes = DynamicDependencyTokenStorage.split_dynamic_scopes(scopes)
-        base_scopes = list(dd_scopes)
-        try:
-            # This first attempt will load tokens without logging in. Note that
-            # only base_scopes are passed to the client. FRL currently can't
-            # handle dynamic scopes, so storage will automatically determine
-            # the correct scopes to load based on the scopes passed in above.
-            return client.get_authorizers_by_scope(requested_scopes=base_scopes)
-        except (LoadError, KeyError):
-            client.login(
-                # Loading tokens failed, so a login is initiated. Note that
-                # the full dynamic dependencies are passed here. Since these
-                # are automatically passed to Globus Auth, FRL doesn't notice
-                # they are scopes with dynamic dependencies.
-                requested_scopes=scopes,
-                refresh_tokens=True,
-                no_browser=no_browser,
+            with open(self.token_store) as f:
+                contents = json.load(f)
+                self.tokens = {k: TokenSet(**v) for k, v in contents.items()}
+        except FileNotFoundError:
+            pass
+        except JSONDecodeError:
+            raise EnvironmentError(
+                "Token cache for Timer CLI is corrupted; please run a `session revoke`"
+                " and try again"
             )
-            return client.get_authorizers_by_scope(requested_scopes=base_scopes)
-    except (LoginException, AuthAPIError) as e:
-        print(f"Login Unsuccessful: {str(e)}")
-        raise SystemExit
+
+    def save_tokens(self):
+        def default(x):
+            if isinstance(x, set):
+                return list(x)
+            return str(x)
+
+        if self.modified:
+            with open(self.token_store, "w") as f:
+                json.dump(
+                    {k: v._asdict() for k, v in self.tokens.items()},
+                    f,
+                    indent=2,
+                    sort_keys=True,
+                    default=default,
+                )
+        self.modified = False
+
+    def update_from_oauth_token_response(
+        self, token_response: OAuthTokenResponse, original_scopes: Set[str]
+    ) -> Dict[str, TokenSet]:
+        by_scopes = token_response.by_scopes
+        token_sets: Dict[str, TokenSet] = {}
+        for scope in by_scopes:
+            token_info = by_scopes[scope]
+            dependent_scopes = set(s for s in original_scopes if "[" in s)
+            token_set = TokenSet(
+                access_token=token_info.get("access_token"),
+                refresh_token=token_info.get("refresh_token"),
+                expiration_time=token_info.get("expires_at_seconds"),
+                dependent_scopes=dependent_scopes,
+            )
+            self.set_tokens(scope, token_set)
+            token_sets[scope] = token_set
+        self.save_tokens()
+        return token_sets
 
 
-def get_authorizer_for_scope(
-    scope: str,
-    all_scopes: List[str] = ALL_SCOPES,
+def _get_globus_sdk_native_client(
+    client_id: str = CLIENT_ID,
+    client_name: str = CLIENT_NAME,
+):
+    return NativeAppAuthClient(client_id, app_name=client_name)
+
+
+def safeprint(s):
+    try:
+        print(s)
+        sys.stdout.flush()
+    except IOError:
+        pass
+
+
+def _do_login_for_scopes(
+    native_client: NativeAppAuthClient, scopes: List[str]
+) -> OAuthTokenResponse:
+    label = CLIENT_NAME
+    host = platform.node()
+    if host:
+        label = label + f" on {host}"
+    native_client.oauth2_start_flow(
+        requested_scopes=scopes,
+        refresh_tokens=True,
+        prefill_named_grant=label,
+    )
+    linkprompt = "Please log into Globus here"
+    safeprint(
+        "{0}:\n{1}\n{2}\n{1}\n".format(
+            linkprompt, "-" * len(linkprompt), native_client.oauth2_get_authorize_url()
+        )
+    )
+    auth_code = click.prompt("Enter the resulting Authorization Code here").strip()
+    return native_client.oauth2_exchange_code_for_tokens(auth_code)
+
+
+def get_authorizers_for_scopes(
+    scopes: List[str],
     token_store: Optional[str] = None,
     client_id: str = CLIENT_ID,
     client_name: str = CLIENT_NAME,
     no_login: bool = False,
-    no_browser: bool = False,
-) -> Optional[GlobusAuthorizer]:
-    authorizers = get_authorizers_for_scope(
-        [scope] + all_scopes,
-        token_store=token_store,
-        client_id=client_id,
-        client_name=client_name,
-        no_login=no_login,
-        no_browser=no_browser,
-    )
-    if not authorizers:
-        return None
-    base_scope = scope.split("[", 1)[0]
-    authorizer = authorizers.get(base_scope)
-    return authorizer
+) -> Dict[str, GlobusAuthorizer]:
+    token_store = token_store or str(DEFAULT_TOKEN_FILE)
+    token_cache = TokenCache(token_store)
+    token_cache.load_tokens()
+    token_sets: Dict[str, TokenSet] = {}
+    needed_scopes: Set[str] = set()
+    native_client = _get_globus_sdk_native_client(client_id, client_name)
+
+    for scope in scopes:
+        token_set = token_cache.get_tokens(scope)
+        if token_set is not None:
+            token_sets[scope] = token_set
+        else:
+            needed_scopes.add(scope)
+
+    if len(needed_scopes) > 0 and not no_login:
+        token_response = _do_login_for_scopes(native_client, list(needed_scopes))
+        new_tokens = token_cache.update_from_oauth_token_response(
+            token_response, set(scopes)
+        )
+        token_sets.update(new_tokens)
+
+    authorizers: Dict[str, GlobusAuthorizer] = {}
+    for scope, token_set in token_sets.items():
+        if token_set is not None:
+            if token_set.refresh_token is not None:
+
+                def refresh_handler(
+                    grant_response: OAuthTokenResponse, *args, **kwargs
+                ):
+                    new_tokens = token_cache.update_from_oauth_token_response(
+                        grant_response, set([scope])
+                    )
+
+                authorizer = RefreshTokenAuthorizer(
+                    token_set.refresh_token,
+                    native_client,
+                    access_token=token_set.access_token,
+                    expires_at=token_set.expiration_time,
+                    on_refresh=refresh_handler,
+                )
+                # Force check that the token is not expired
+                authorizer.check_expiration_time()
+            else:
+                authorizer = AccessTokenAuthorizer(token_set.access_token)
+            authorizers[_get_base_scope(scope)] = authorizer
+    return authorizers
 
 
-def get_access_token_for_scope(
-    token_store: Optional[str] = None,
-    token_scope: str = TIMER_SERVICE_SCOPE,
-) -> Optional[str]:
-    authorizer = get_authorizer_for_scope(token_scope, token_store=token_store)
-    if authorizer is not None:
-        return authorizer.access_token
-    else:
+def get_access_token_for_scope(scope: str) -> Optional[str]:
+    authorizer = get_authorizers_for_scopes([scope]).get(_get_base_scope(scope))
+    if not authorizer:
+        click.echo(f"couldn't obtain authorizer for scope: {scope}", err=True)
         return None
+    token = getattr(authorizer, "access_token", None)
+    if not token:
+        click.echo("authorizer failed to get token from Globus Auth")
+        return None
+    return token
 
 
 def logout(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
     try:
         os.remove(token_store)
-        return True
     except OSError:
+        click.echo("couldn't remove token cache file", err=True)
         return False
+    return True
 
 
 def revoke_login(token_store: str = DEFAULT_TOKEN_FILE) -> bool:
-    """
-    This calls the fair research login function logout on the client. This has two side
-    effects:
-
-    1. It revokes the tokens that it has been issued. This means that any place those
-    tokens (including refresh tokens) are in use, they will no longer be valid tokens.
-    This can be a problem for services like timer that refresh and re-use tokens over a
-    long period of time.
-
-    2. It removes the token store file. This is good as it essentially causes the user
-    to re-login on next use.
-    """
-    client = _get_native_client([], token_store=token_store)
-    if client:
-        client.logout()
-    return client is not None
+    client = _get_globus_sdk_native_client(CLIENT_ID, CLIENT_NAME)
+    if not client:
+        click.echo("failed to get auth client", err=True)
+        return False
+    cache = TokenCache(token_store)
+    for token_set in cache.tokens.values():
+        client.oauth2_revoke_token(token_set.access_token)
+        client.oauth2_revoke_token(token_set.refresh_token)
+    if not logout(token_store):
+        return False
+    return True
 
 
 def get_current_user(
-    token_store: Optional[str] = None,
-    no_login: bool = False,
-    no_browser: bool = False,
+    no_login: bool = False, token_store: str = DEFAULT_TOKEN_FILE
 ) -> Optional[Dict[str, Any]]:
     """
     When `no_login` is set, returns `None` if not logged in.
@@ -166,15 +263,12 @@ def get_current_user(
     # We don't really care which scope from the AUTH_SCOPE list we use here since they
     # all share the same resource server (Auth itself) and therefore an authorizer for
     # any of them grants us access to the same resource server.
-    authorizer = get_authorizer_for_scope(
-        AUTH_SCOPES[0],
-        token_store=token_store,
-        no_login=no_login,
-        no_browser=no_browser,
+    authorizers = get_authorizers_for_scopes(
+        AUTH_SCOPES, token_store=token_store, no_login=no_login
     )
-    if not authorizer:
+    if not authorizers:
         return None
-    auth_client = AuthClient(authorizer=authorizer)
+    auth_client = AuthClient(authorizer=authorizers.get("openid"))
     try:
         user_info = auth_client.oauth2_userinfo()
     except AuthAPIError as e:

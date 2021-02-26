@@ -36,43 +36,41 @@ doubt, add `--help` to a command for guidance on next steps.
 
 To schedule transfers on your behalf, this CLI requires authentication through
 Globus Auth. Initially, the CLI will prompt you to authorize use via the Globus
-Auth system. Typically, this will occur by opening a web browser which will
-request that you login to your Globus identity and to consent to the service
-looking up your identity and interacting with the Globus Transfer service on
-your behalf. Some Globus endpoints require additional authentication for use;
-when this is necessary, a second browser window may open asking for consent for
-using the Globus Transfer service and additionally for the specific endpoint(s)
-used with that job.
+Auth system, with a link to open in a web browser. The page will request that
+you login to your Globus identity and consent to the service looking up your
+identity and interacting with the Globus Transfer service on your behalf, and
+then give you an authorization code to copy and paste back into the CLI. Some
+Globus endpoints require additional authentication for use; when this is
+necessary, the CLI will repeat the above process to get consent for using the
+Globus Transfer service and the specific endpoint(s) for that job.
 
 Authentication information is thereafter cached in the file
-`~/.globus_timer_tokens.cfg` (so the authentication process is only
-needed on the first use); keep this file secret.
+`~/.globus_timer_tokens.json` (so the authentication process is only needed on
+the first use of the CLI, or of a given transfer endpoint when required); keep
+this file secret.
 
-After first use, you can determine what Globus Auth identity is being
-used for interacting with the service by running the command:
+After first use, you can determine what Globus Auth identity is being used for
+interacting with the service by running the command:
 
 ```
 globus-timer session whoami
 ```
 
-This will show the identity which will be used for running the
-Transfers. Be sure that this identity is authorized to work with the
-endpoints involved in the Transfer.
+This will show the identity which will be used for running the Transfers. Be
+sure that this identity is authorized to work with the endpoints involved in the
+Transfer.
 
-To remove your stored identity information so that you may
-re-authenticate, for example to invoke subsequent operations using a
-different Globus Auth identity, use the command:
+To remove your stored identity information so that you may re-authenticate, for
+example to invoke subsequent operations using a different Globus Auth identity,
+use the command:
 
 ```
 globus-timer session logout
 ```
 
-This will simply delete the file `~/.globus_timer_tokens.cfg`
-removing the identity information stored there so you will be required
-to authenticate again on next use of the tool. Note that should you
-wish to both logout, and revoke the Timer service's permission to run
-further operations, you may use the command `globus-timer session
-revoke` however this should be an extreme measure as it is much
+Note that should you wish to both logout, and revoke the Timer service's
+permission to run further operations, you may use the command `globus-timer
+session revoke` however this should be an extreme measure as it is much
 preferred to properly delete jobs as described below.
 
 ## Scheduling Periodic Globus Transfer operations
