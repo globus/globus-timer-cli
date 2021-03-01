@@ -33,6 +33,10 @@ def _get_base_scope(scope: str):
 
 
 class TokenSet(NamedTuple):
+    """
+    Might want to check out this as a replacement:
+    https://www.attrs.org/en/stable/why.html#namedtuples
+    """
     access_token: str
     refresh_token: Optional[str]
     expiration_time: Optional[int]
@@ -52,10 +56,14 @@ class TokenCache:
 
     def set_tokens(self, scope: str, tokens: TokenSet) -> TokenSet:
         if scope in self.tokens:
-            self.tokens[scope].access_token = tokens.access_token
-            self.tokens[scope].refresh_token = tokens.refresh_token
-            self.tokens[scope].expiration_time = tokens.expiration_time
-            self.tokens[scope].dependent_scopes.update(tokens.dependent_scopes)
+            dependent_scopes = set(tokens.dependent_scopes).union(set(self.tokens[scope].dependent_scopes))
+            new_token_set = TokenSet(
+                access_token=tokens.access_token,
+                refresh_token=tokens.refresh_token,
+                expiration_time=tokens.expiration_time,
+                dependent_scopes=dependent_scopes,
+            )
+            self.tokens[scope] = new_token_set
         else:
             self.tokens[scope] = tokens
         self.modified = True
