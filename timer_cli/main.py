@@ -271,7 +271,18 @@ class URL(click.ParamType):
         return value
 
 
-cli = click.Group()
+@click.group(invoke_without_command=True)
+@click.option(
+    "--version",
+    "-v",
+    is_flag=True,
+    help="Print what version of this CLI is installed."
+)
+def cli(version: bool):
+    if version:
+        from importlib.metadata import version
+        v = version("globus-timer-cli")
+        click.echo(f"globus-timer-cli {v}")
 
 
 @cli.group(help="Commands for managing periodic Globus Transfer jobs.")
