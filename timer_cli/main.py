@@ -275,14 +275,18 @@ class URL(click.ParamType):
 @click.option(
     "--version",
     "-v",
+    "show_version",
     is_flag=True,
+    default=False,
     help="Print what version of this CLI is installed."
 )
-def cli(version: bool):
-    if version:
-        from importlib.metadata import version
-        v = version("globus-timer-cli")
-        click.echo(f"globus-timer-cli {v}")
+def cli(show_version: bool):
+    from importlib.metadata import version
+    v = version("globus-timer-cli")
+    click.echo(f"globus-timer-cli {v}")
+    if show_version:
+        return
+    show_usage(click.get_current_context().command)
 
 
 @cli.group(help="Commands for managing periodic Globus Transfer jobs.")
