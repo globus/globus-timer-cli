@@ -6,6 +6,7 @@ TODO:
 from csv import DictReader
 import datetime
 from distutils.util import strtobool
+from importlib.metadata import version
 import json
 import re
 import sys
@@ -132,6 +133,15 @@ def _get_required_data_access_scopes(
                     f"https://auth.globus.org/scopes/{collection_id}/data_access"
                 )
     return data_access_scopes
+
+
+def get_version_string() -> str:
+    v = version("globus-timer-cli")
+    return f"globus-timer-cli {v}"
+
+
+def show_version_string():
+    click.echo(get_version_string())
 
 
 def show_usage(cmd: click.Command):
@@ -271,7 +281,19 @@ class URL(click.ParamType):
         return value
 
 
-cli = click.Group()
+@click.group(invoke_without_command=True, no_args_is_help=True)
+@click.option(
+    "--version",
+    "-v",
+    "show_version",
+    is_flag=True,
+    default=False,
+    help="Print what version of this CLI is installed."
+)
+def cli(show_version: bool):
+    if show_version:
+        show_version_string()
+        return
 
 
 @cli.group(help="Commands for managing periodic Globus Transfer jobs.")
