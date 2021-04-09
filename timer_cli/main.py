@@ -6,7 +6,10 @@ TODO:
 from csv import DictReader
 import datetime
 from distutils.util import strtobool
-from importlib.metadata import version
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version
 import json
 import re
 import sys

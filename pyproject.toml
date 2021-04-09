@@ -32,6 +32,7 @@ python = "^3.6"
 requests = "^2.24.0"
 click = "^7.1.2"
 globus-sdk = "^2.0.1"
+importlib-metadata = "^3.10.0"
 
 [tool.poetry.dev-dependencies]
 importmagic = "^0.1.7"
