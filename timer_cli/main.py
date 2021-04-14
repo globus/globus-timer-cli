@@ -6,10 +6,6 @@ TODO:
 from csv import DictReader
 import datetime
 from distutils.util import strtobool
-try:
-    from importlib.metadata import version
-except ImportError:
-    from importlib_metadata import version
 import json
 import re
 import sys
@@ -37,6 +33,12 @@ from timer_cli.transfer import (
     error_if_not_activated,
     get_transfer_client,
 )
+
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version
+
 
 # List of datetime formats accepted as input. (`%z` means timezone.)
 DATETIME_FORMATS = [
@@ -291,7 +293,7 @@ class URL(click.ParamType):
     "show_version",
     is_flag=True,
     default=False,
-    help="Print what version of this CLI is installed."
+    help="Print what version of this CLI is installed.",
 )
 def cli(show_version: bool):
     if show_version:

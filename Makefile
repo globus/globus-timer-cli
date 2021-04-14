@@ -9,12 +9,12 @@ makefile targets:
     requirements    generate `poetry.lock` file
     install         install dependencies and package
 endef
-export TIMER_MAKE_HELP
+export TIMER_CLI_MAKE_HELP
 
 .PHONY: help test test-coverage install lint dolint run docker
 
 help:
-	@echo "$$TIMER_MAKE_HELP"
+	@echo "$$TIMER_CLI_MAKE_HELP"
 
 venv:
 	poetry update
