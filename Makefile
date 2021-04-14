@@ -3,6 +3,7 @@ LINT_PATHS=timer_cli/ tests/
 define TIMER_CLI_MAKE_HELP
 makefile targets:
     help            show this message
+    test            run the pytest test suite
     lint            dry run linters
     dolint          apply linter changes
     venv            poetry install dependencies into venv
