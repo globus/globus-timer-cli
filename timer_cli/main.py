@@ -673,7 +673,7 @@ def transfer(
     else:
         action_body["label"] = f"Job from Timer service named {name}"
     if sync_level is not None:
-        action_body["sync_level"] = sync_level
+        action_body["sync_level"] = str(sync_level)
     action_body["encrypt_data"] = encrypt_data
     action_body["verify_checksum"] = verify_checksum
     action_body["preserve_timestamp"] = preserve_timestamp
