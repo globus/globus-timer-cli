@@ -54,6 +54,14 @@ class TokenCache:
         self.token_store = token_store
         self.tokens: Dict[str, TokenSet] = {}
         self.modified = False
+        self._fix_file_permissions()
+
+    def _fix_file_permissions(self):
+        """
+        Make sure that the tokens file is set to read/write for user only.
+        """
+        if os.path.exists(self.token_store) and (os.stat(self.token_store).st_mode & 0o77) > 0:
+                os.chmod(self.token_store, 0o600)
 
     def set_tokens(self, scope: str, tokens: TokenSet) -> TokenSet:
         if scope in self.tokens:
@@ -108,14 +116,20 @@ class TokenCache:
             return str(x)
 
         if self.modified:
-            with open(self.token_store, "w") as f:
-                json.dump(
-                    {k: v._asdict() for k, v in self.tokens.items()},
-                    f,
-                    indent=2,
-                    sort_keys=True,
-                    default=default,
-                )
+            # disable permissions other than user read/write
+            original_umask = os.umask(0o177)
+            try:
+                fd = os.open(self.token_store, os.O_WRONLY | os.O_CREAT, 0o600)
+                with os.fdopen(fd, "w") as f:
+                    json.dump(
+                        {k: v._asdict() for k, v in self.tokens.items()},
+                        f,
+                        indent=2,
+                        sort_keys=True,
+                        default=default,
+                    )
+            finally:
+                os.umask(original_umask)
         self.modified = False
 
     def update_from_oauth_token_response(
