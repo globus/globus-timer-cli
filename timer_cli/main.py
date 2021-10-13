@@ -599,6 +599,26 @@ def delete(job_ids: Iterable[uuid.UUID], verbose: bool):
     ),
 )
 @click.option(
+    "--skip-source-errors",
+    is_flag=True,
+    default=False,
+    help=(
+        "Skip files or directories on the source endpoint that hit PERMISSION_DENIED or"
+        " FILE_NOT_FOUND errors."
+    ),
+)
+@click.option(
+    "--fail-on-quota-errors",
+    is_flag=True,
+    default=False,
+    help="Cancel the task if QUOTA_EXCEEDED errors are hit.",
+)
+@click.option(
+    "--recursive-symlinks",
+    required=False,
+    type=click.Choice(["ignore", "keep", "copy"], case_sensitive=False),
+)
+@click.option(
     "--items-file",
     required=False,
     type=str,
@@ -626,6 +646,9 @@ def transfer(
     encrypt_data: bool,
     verify_checksum: bool,
     preserve_timestamp: bool,
+    skip_source_errors: bool,
+    fail_on_quota_errors: bool,
+    recursive_symlinks: Optional[str],
     item: Optional[List[Tuple[str, str, Optional[str]]]],
     items_file: Optional[str],
     verbose: bool,
@@ -677,6 +700,10 @@ def transfer(
     action_body["encrypt_data"] = encrypt_data
     action_body["verify_checksum"] = verify_checksum
     action_body["preserve_timestamp"] = preserve_timestamp
+    action_body["skip_source_errors"] = skip_source_errors
+    action_body["fail_on_quota_errors"] = fail_on_quota_errors
+    if recursive_symlinks is not None:
+        action_body["recursive_symlinks"] = recursive_symlinks
     callback_body = {"body": action_body}
     interval_seconds = _parse_timedelta(interval).total_seconds()
     if not interval_seconds:
