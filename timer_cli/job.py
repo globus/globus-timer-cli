@@ -266,7 +266,7 @@ def show_job_list(
     headers = ["Name", "Job ID", "Status", "Last Result"]
     try:
         rows = [
-            [job["name"], job["job_id"], job["status"], _get_job_result(job)]
+            [job["name"] or "[None]", job["job_id"], job["status"], _get_job_result(job)]
             for job in job_json["jobs"]
         ]
     except (IndexError, KeyError) as e:
