@@ -152,7 +152,7 @@ def _get_job_result(job_json: dict) -> Optional[str]:
     if "results" not in job_json:
         return None
     last_result = "RUN COMPLETE"
-    job_results = job_json["results"]
+    job_results = job_json["results"]["data"]
     if len(job_results) == 0:
         last_result = "NOT RUN"
     else:
@@ -266,7 +266,7 @@ def show_job_list(
     headers = ["Name", "Job ID", "Status", "Last Result"]
     try:
         rows = [
-            [job["name"] or "[None]", job["job_id"], job["status"], _get_job_result(job)]
+            [job.get("name") or "[None]", job["job_id"], job["status"], _get_job_result(job)]
             for job in job_json["jobs"]
         ]
     except (IndexError, KeyError) as e:
