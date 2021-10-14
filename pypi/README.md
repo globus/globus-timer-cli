@@ -79,7 +79,7 @@ NOTE: To avoid confusion, please read the entirety of this section before using
 the `job transfer` sub-command.
 
 The starting point for working with the Timer service is scheduling transfers to
-run periodically. The form of this command is below:
+run periodically. An example of this command is below:
 
 ```
 globus-timer job transfer \
@@ -89,8 +89,8 @@ globus-timer job transfer \
     --start '2020-01-01T12:34:56' \
     --source-endpoint ddb59aef-6d04-11e5-ba46-22000b92c6ec \
     --dest-endpoint ddb59af0-6d04-11e5-ba46-22000b92c6ec \
-    --item ~/file1.txt ~/new_file1.txt false \
-    --item ~/file2.txt ~/new_file2.txt false
+    --item "/share/godata/file1.txt" "~/new_file1.txt" false \
+    --item "/share/godata/file2.txt" "~/new_file2.txt" false
 ```
 
 The parameters to the `job transfer` command are as follows (also documented in
@@ -159,8 +159,8 @@ operations as the example above would look like:
 
 ```
 # This is my items file
-~/file1.txt, ~/new_file1.txt, false
-~/file2.txt, ~/new_file2.txt, false
+/share/godata/file1.txt, ~/new_file1.txt, false
+/share/godata/file2.txt, ~/new_file2.txt, false
 ```
 
 If this file was named `transfer_items.csv` it would be specified with the parameter:
