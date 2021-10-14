@@ -23,6 +23,9 @@ if env == "test":
 elif env == "sandbox":
     CLIENT_ID = "1535e847-2b25-490c-a4f8-3a6ecfb9e9a3"
     TIMER_SERVICE_SCOPE = "https://auth.globus.org/scopes/c791423d-6b92-4860-82aa-41fb32aaa519/timer"
+elif env == "integration":
+    CLIENT_ID = "fbe4a877-f5b6-449d-a436-cdb49aad7fea"
+    TIMER_SERVICE_SCOPE = "https://auth.globus.org/scopes/df63056d-6585-46ef-97e1-b0748cb6643a/timer"
 else:
     CLIENT_ID = "bc77d044-1f42-46cc-9702-87f756cd08a6"
     TIMER_SERVICE_SCOPE = "https://auth.globus.org/scopes/524230d7-ea86-4a52-8312-86065a9e0417/timer"
