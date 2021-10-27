@@ -27,8 +27,8 @@ poetry install
 
 ### Usage
 
-Run the CLI with `poetry run timer ...`:
+Run the CLI with `poetry run globus-timer ...`:
 ```bash
-poetry run timer --help
-poetry run timer job --help
+poetry run globus-timer --help
+poetry run globus-timer job --help
 ```
