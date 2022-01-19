@@ -95,7 +95,7 @@ def job_submit(
         sys.exit(1)
     try:
         return requests.post(
-            _TIMER_JOBS_URL,
+            f"{_TIMER_JOBS_URL}/",
             json=req_json,
             headers=headers,
             timeout=TIMEOUT,
@@ -111,7 +111,7 @@ def job_list(show_deleted: bool = False) -> requests.Response:
         params["show_deleted"] = True
     try:
         return requests.get(
-            f"{_TIMER_JOBS_URL}",
+            f"{_TIMER_JOBS_URL}/",
             params=params,
             headers=headers,
             timeout=TIMEOUT,
