@@ -20,7 +20,7 @@ _DEFAULT_TIMER_SERVICE_URL = "https://timer.automate.globus.org"
 
 TIMER_SERVICE_URL = os.environ.get("TIMER_SERVICE_URL", _DEFAULT_TIMER_SERVICE_URL)
 
-_TIMER_JOBS_URL = f"{TIMER_SERVICE_URL}/jobs"
+_TIMER_JOBS_URL = f"{TIMER_SERVICE_URL}/jobs/"
 
 
 def handle_requests_exception(e: Exception):
