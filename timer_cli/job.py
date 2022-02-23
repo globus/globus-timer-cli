@@ -82,7 +82,9 @@ def job_submit(
     if stop_after_date or stop_after_runs:
         req_json["stop_after"] = dict()
         if stop_after_date:
-            req_json["stop_after"]["date"] = stop_after_date
+            if stop_after_date.tzinfo is None:
+                stop_after_date = stop_after_date.astimezone()
+            req_json["stop_after"]["date"] = stop_after_date.isoformat()
         if stop_after_runs:
             req_json["stop_after"]["n_runs"] = stop_after_runs
     # Ww'll make the job scope dependent on the timer service's job creation scope so we
