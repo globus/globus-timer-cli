@@ -1,10 +1,10 @@
 # Globus Automate Timer CLI
 
-This is a beta-version CLI for use with the (also in beta) Globus Timer API, to
-use primarily for scheduling recurring Globus transfers through Globus Automate.
+This is a CLI for use with the Globus Timer API, to use primarily for
+scheduling recurring Globus transfers through Globus Automate.
 
-As the CLI and service are still in beta, please feel free to email support at
-globus dot org with feedback or to resolve issues.
+Please feel free to email support at globus dot org with feedback or to resolve
+issues.
 
 ## What is this Service/CLI for?
 
@@ -19,18 +19,14 @@ transfer to and from as well as other options relevant to the transfer.
 
 ## Installation
 
-This CLI requires Python version 3.5 or higher. See the [Globus CLI
-docs](https://docs.globus.org/cli/installation/prereqs/) for help on how to set
-up Python.
-
-Once the appropriate version of Python is ready, install with `pip
-install globus-timer-cli`. This will create a new command line
-utility, `globus-timer` which can be used for all interactions with
-the service. Online documentation is always available using the
-`--help` option on any command. So, `globus-timer --help` will provide
-information about the options on the command while `globus-timer job
---help` will provide help text specific to working with jobs. When in
-doubt, add `--help` to a command for guidance on next steps.
+This CLI requires Python version 3.6 or higher. Once the appropriate version of
+Python is ready, install with `pip install globus-timer-cli`. This will create
+a new command line utility, `globus-timer`, which can be used for all
+interactions with the service. Online documentation is always available using
+the `--help` option on any command. So, `globus-timer --help` will provide
+information about the options on the command while `globus-timer job --help`
+will provide help text specific to working with jobs. When in doubt, add
+`--help` to a command for guidance on next steps.
 
 ## Getting Started
 
