@@ -2,7 +2,9 @@
 name = "globus-timer-cli"
 version = "0.2.9"
 description = "CLI for interacting with the timer API"
-authors = ["Rudyard Richter <rudyard@globus.org>"]
+authors = [
+    "Kurt McKee <kurt@globus.org>",
+]
 keywords = [
   "globus",
   "automation",
