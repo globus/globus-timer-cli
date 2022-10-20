@@ -32,3 +32,13 @@ Run the CLI with `poetry run globus-timer ...`:
 poetry run globus-timer --help
 poetry run globus-timer job --help
 ```
+
+### Publishing
+
+To publish a new release to PyPI, you must have admin rights within the PyPI
+project. Make sure you're in a clean state on the main branch. You can then
+submit a new version with the following:
+```
+poetry build
+poetry publish
+```
