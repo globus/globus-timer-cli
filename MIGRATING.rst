@@ -88,7 +88,7 @@ The Timer CLI options listed below must be updated when migrating to the Globus 
         "``mtime``", "``2``", "Transfer files if their modification times differ"
         "``checksum``", "``3``", "Transfer files if their checksums differ"
 
-    Example:
+    For example:
 
     ..  code-block:: bash
 
@@ -122,25 +122,23 @@ The Timer CLI options listed below must be updated when migrating to the Globus 
     For example:
 
     ..  code-block:: bash
-        :caption: Recursive transfer timer
 
         # Timer CLI command (recursive)
         globus-timer job transfer \
             --source-endpoint SRC_ID --dest-endpoint DST_ID \
             --item SRC_PATH DST_PATH true
 
-        # Globus CLI command
+        # Globus CLI command (recursive)
         globus timer create transfer SRC_ID:SRC_PATH DST_ID:DST_PATH --recursive
 
     ..  code-block:: bash
-        :caption: Non-recursive transfer timer
 
-        # Timer CLI command (recursive)
+        # Timer CLI command (non-recursive)
         globus-timer job transfer \
             --source-endpoint SRC_ID --dest-endpoint DST_ID \
             --item SRC_PATH DST_PATH false
 
-        # Globus CLI command
+        # Globus CLI command (non-recursive)
         globus timer create transfer SRC_ID:SRC_PATH DST_ID:DST_PATH --no-recursive
 
 *   ``--items-file <FILE>``
@@ -266,7 +264,6 @@ supported by the Timer CLI and the `Globus CLI`_.
 The Globus CLI has extensive documentation for its suite of ``globus timer`` commands.
 For up-to-date information about supported commands, options, and values,
 please review the `Globus CLI Timers commands reference`_.
-
 
 
 ..  Links
