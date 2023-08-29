@@ -100,6 +100,17 @@ The Timer CLI options listed below must be updated when migrating to the Globus 
         # Globus CLI command
         globus timer create transfer [...] --sync-level mtime
 
+*   ``--interval <TIME_DELTA>``
+
+    The ``--interval`` option is nearly identical between the Timer CLI and the Globus CLI.
+
+    Both support units to indicate seconds, minutes, hours, days, and weeks.
+    The only difference is that the Globus CLI always requires units, even for seconds.
+
+    For example, the Timer CLI allowed values like ``--interval 86400``.
+    This would need to be updated to ``--interval 86400s`` for the Globus CLI
+    (or, perhaps, ``--interval 24h``).
+
 *   ``--item <SRC_PATH> <DST_PATH> <RECURSIVE_FLAG>``
 
     The ``--item`` option is not supported in the Globus CLI.
