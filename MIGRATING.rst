@@ -46,7 +46,7 @@ Options
 =======
 
 Although most Timer CLI options were ported to the Globus CLI without a name change,
-some of the options' values were modified.
+some of the value formats have changed.
 In most cases these differences align the Timers-specific options and values with
 existing options and values used when submitting tasks to the Globus Transfer service.
 
