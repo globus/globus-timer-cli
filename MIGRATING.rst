@@ -34,7 +34,9 @@ Commands
     "Delete a timer", "``globus-timer job delete``", "``globus timer delete``"
 
 
-..  note::
+..  pull-quote::
+
+    **Note**
 
     To support development of the Timers service,
     the Timer CLI supported fine-grained control of timer creation
@@ -106,7 +108,9 @@ The Timer CLI options listed below must be updated when migrating to the Globus 
     add the paths directly to the source and destination endpoints
     using a colon (``:``) as a separator.
 
-    ..  note::
+    ..  pull-quote::
+
+        **Note**
 
         The Timer CLI allowed users to pass the ``--item`` option multiple times,
         but also supported a ``--items-file`` option for batching transfers
