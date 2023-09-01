@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "globus-timer-cli"
-version = "0.2.9"
+version = "0.2.9.post0"
 description = "CLI for interacting with the timer API"
 authors = [
     "Kurt McKee <kurt@globus.org>",
@@ -11,7 +11,7 @@ keywords = [
   "cli"
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 7 - Inactive",
   "Intended Audience :: Developers",
   "License :: Free To Use But Restricted",
   "Programming Language :: Python :: 3.6",
