@@ -409,7 +409,7 @@ def submit(
     "--show-deleted",
     required=False,
     is_flag=True,
-    help="Whether to include deleted jobs in the output",
+    help="This is a no-op flag. The Timers service no longer accepts it.",
 )
 @click.option(
     "--verbose",
@@ -444,7 +444,7 @@ def list(show_deleted: bool, verbose: bool):
     "--show-deleted",
     required=False,
     is_flag=True,
-    help="Whether to include deleted jobs in the output",
+    help="This is now a no-op flag. The Timers service no longer accepts it.",
 )
 @click.option(
     "--verbose",
