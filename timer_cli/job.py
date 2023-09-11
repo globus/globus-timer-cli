@@ -109,8 +109,6 @@ def job_submit(
 def job_list(show_deleted: bool = False) -> requests.Response:
     headers = get_headers()
     params = dict()
-    if show_deleted:
-        params["show_deleted"] = True
     try:
         return requests.get(
             f"{_TIMER_JOBS_URL}/",
@@ -125,8 +123,6 @@ def job_list(show_deleted: bool = False) -> requests.Response:
 def job_status(job_id: uuid.UUID, show_deleted: bool = False) -> requests.Response:
     headers = get_headers()
     params = dict()
-    if show_deleted:
-        params["show_deleted"] = True
     try:
         return requests.get(
             f"{_TIMER_JOBS_URL}/{job_id}",
