@@ -15,6 +15,7 @@ import uuid
 
 import click
 from globus_sdk import TransferClient
+from globus_sdk.config import get_globus_environ
 
 from timer_cli.auth import get_current_user
 from timer_cli.auth import logout as auth_logout
@@ -408,7 +409,7 @@ def submit(
     "--show-deleted",
     required=False,
     is_flag=True,
-    help="Whether to include deleted jobs in the output",
+    help="This is a no-op flag. The Timers service no longer accepts it.",
 )
 @click.option(
     "--verbose",
@@ -443,7 +444,7 @@ def list(show_deleted: bool, verbose: bool):
     "--show-deleted",
     required=False,
     is_flag=True,
-    help="Whether to include deleted jobs in the output",
+    help="This is now a no-op flag. The Timers service no longer accepts it.",
 )
 @click.option(
     "--verbose",
@@ -657,9 +658,15 @@ def transfer(
     Submit a task for periodic transfer or sync using Globus transfer. The options for
     this command are tailored to the transfer action.
     """
-    action_url = urllib.parse.urlparse(
-        "https://actions.automate.globus.org/transfer/transfer/run"
-    )
+    env = get_globus_environ()
+    if env != "production":
+        action_url = urllib.parse.urlparse(
+            f"https://{env}.actions.automate.globus.org/transfer/transfer/run"
+        )
+    else:
+        action_url = urllib.parse.urlparse(
+            "https://actions.automate.globus.org/transfer/transfer/run"
+        )
     endpoints = [source_endpoint, dest_endpoint]
     tc = get_transfer_client()
     error_if_not_activated(tc, endpoints)

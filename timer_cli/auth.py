@@ -12,10 +12,22 @@ from globus_sdk import AuthClient, NativeAppAuthClient
 from globus_sdk.auth.token_response import OAuthTokenResponse
 from globus_sdk.authorizers import GlobusAuthorizer, RefreshTokenAuthorizer
 from globus_sdk.exc import AuthAPIError
+from globus_sdk.config import get_globus_environ
 
-CLIENT_ID = "bc77d044-1f42-46cc-9702-87f756cd08a6"
 CLIENT_NAME = "Globus Timer Command Line Interface"
+env = get_globus_environ()
+
 TIMER_SERVICE_SCOPE = "https://auth.globus.org/scopes/524230d7-ea86-4a52-8312-86065a9e0417/timer"
+if env == "test":
+    CLIENT_ID = "27afd9d6-f4a7-4ad3-9f88-8b20608a14da"
+elif env == "sandbox":
+    CLIENT_ID = "1535e847-2b25-490c-a4f8-3a6ecfb9e9a3"
+elif env == "integration":
+    CLIENT_ID = "fbe4a877-f5b6-449d-a436-cdb49aad7fea"
+else:
+    # production CLI client
+    CLIENT_ID = "bc77d044-1f42-46cc-9702-87f756cd08a6"
+
 AUTH_SCOPES = [
     "openid",
     "email",
